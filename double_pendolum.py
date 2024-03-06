@@ -114,7 +114,7 @@ def simulate_double_pendulum(θ1_0, θ2_0, ω1_0, ω2_0, dt, T):
     return t, θ1, θ2, ω1, ω2, τ1, τ2
 
 
-def create_animation(t, θ1, θ2, ω1, ω2, L1, L2, dt, fps=150, simple_trace=True):
+def create_animation(t, θ1, θ2, ω1, ω2, L1, L2, dt, fps=150, simple_trace=True, trace_length=300):
     dt_anim = 1 / fps # animation time step
     n = int(dt_anim / dt) # number of data points to skip
     t, θ1, θ2, ω1, ω2 = t[::n], θ1[::n], θ2[::n], ω1[::n], ω2[::n]
@@ -151,12 +151,13 @@ def create_animation(t, θ1, θ2, ω1, ω2, L1, L2, dt, fps=150, simple_trace=Tr
         x1, x2 = [0, L1*sin(θ1[i])],[L1*sin(θ1[i]), L1*sin(θ1[i]) + L2*sin(θ2[i])]
         y1, y2 = [0, -L1*cos(θ1[i])], [-L1*cos(θ1[i]), -L1*cos(θ1[i]) - L2*cos(θ2[i])]
         line1.set_data(x1, y1), line2.set_data(x2, y2)
+        tb, te = max(i-trace_length, 0), i
         if simple_trace:
-            trace.set_data(np.append(trace.get_xdata(), x2[1]), np.append(trace.get_ydata(), y2[1]))
+            trace.set_data([L1*sin(θ1[tb:te]) + L2*sin(θ2[tb:te]), -L1*cos(θ1[tb:te]) - L2*cos(θ2[tb:te])])
         else:
-            trace_data = np.array([L1*sin(θ1[:i]) + L2*sin(θ2[:i]), -L1*cos(θ1[:i]) - L2*cos(θ2[:i])]).T
+            trace_data = np.array([L1*sin(θ1[tb:te]) + L2*sin(θ2[tb:te]), -L1*cos(θ1[tb:te]) - L2*cos(θ2[tb:te])]).T
             trace.set_offsets(trace_data)
-            trace.set_color(cmap(norm(vel[:i])))
+            trace.set_color(cmap(norm(vel[tb:te])))
         time_text.set_text(time_template % (i*dt_anim))
         return line1, line2, trace, time_text
     
