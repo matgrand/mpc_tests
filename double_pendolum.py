@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from numpy import sin, cos, tan, pi
 
-OFFSET = +pi/2
-
 ###################################################################################################################
 L1 = 1.1  # First arm
 L2 = 1  # Second arm
@@ -14,7 +12,7 @@ mu2 = 0.0  # friction coefficient second joint
 m1 = 1.0  # mass of the first pendulum
 m2 = 1.0  # mass of the second pendulum
 
-dt = 0.01
+dt = 0.001  # time step
 T = 30
 ###################################################################################################################
 ## CONTROLLER
@@ -29,25 +27,17 @@ print(f'{"BOTH" if BOTH else "ONLY1" if ONLY1 else "ONLY2" if ONLY2 else "FREE"}
 θstar1 = pi
 θstar2 = pi
 # start position deviation
-std1 = 5 # [deg] deviation from the setpoint
-std2 = 5 # [deg] deviation from the setpoint
+std1 = 15 # [deg] deviation from the setpoint
+std2 = 15 # [deg] deviation from the setpoint
 ###################################################################################################################
 
 def model_step(θ1, θ2, ω1, ω2, τ1, τ2, dt):
-    #remove offset
-    θ1, θ2 = θ1 - OFFSET, θ2 - OFFSET
-    # Compute the derivatives of θ1, θ2, ω1, and ω2
-    dθ1_dt = ω1
-    dθ2_dt = ω2
+    # Compute the derivatives ω1 and ω2
     dω1_dt = (-g*(2*m1+m2)*sin(θ1) - m2*g*sin(θ1-2*θ2) - 2*sin(θ1-θ2)*m2*(ω2**2*L2+ω1**2*L1*cos(θ1-θ2))) / (L1*(2*m1+m2-m2*cos(2*θ1-2*θ2))) - mu1*ω1 + τ1
     dω2_dt = (2*sin(θ1-θ2)*(ω1**2*L1*(m1+m2) + g*(m1+m2)*cos(θ1) + ω2**2*L2*m2*cos(θ1-θ2))) / (L2*(2*m1+m2-m2*cos(2*θ1-2*θ2))) - mu2*ω2 + τ2
     # Update θ1, θ2, ω1, and ω2 using Euler's method
-    θ1 = θ1 + dt * dθ1_dt
-    θ2 = θ2 + dt * dθ2_dt
-    ω1 = ω1 + dt * dω1_dt
-    ω2 = ω2 + dt * dω2_dt
-    #return with offset
-    return θ1 + OFFSET, θ2 + OFFSET, ω1, ω2
+    θ1, θ2 = θ1 + ω1 * dt, θ2 + ω2 * dt
+    ω1, ω2 = ω1 + dω1_dt * dt, ω2 + dω2_dt * dt
     return θ1, θ2, ω1, ω2
 
 class PIDController:
@@ -117,24 +107,25 @@ def simulate_double_pendulum(θ1_0, θ2_0, ω1_0, ω2_0, dt, T):
     θ1[0], θ2[0], ω1[0], ω2[0] = θ1_0, θ2_0, ω1_0, ω2_0
     # Simulate the dynamics of the double pendulum
     for i in range(1, len(t)):
-        e1 = θstar1 - θ1[i-1] + OFFSET
-        e2 = (θstar2 - θ2[i-1]) - e1 + OFFSET
+        e1 = θstar1 - θ1[i-1] # error for the first joint
+        e2 = (θstar2 - θ2[i-1]) - e1 # error for the second joint
         τ1[i], τ2[i] = controller.compute_control(e1, e2, dt)
-        # model step
         θ1[i], θ2[i], ω1[i], ω2[i] = model_step(θ1[i-1], θ2[i-1], ω1[i-1], ω2[i-1], τ1[i], τ2[i], dt)
     return t, θ1, θ2, ω1, ω2, τ1, τ2
 
 
-def create_animation(t, θ1, θ2, L1, L2):
+def create_animation(t, θ1, θ2, L1, L2, dt, fps=100):
+    dt_anim = 1 / fps # animation time step
+    n = int(dt_anim / dt) # number of data points to skip
+    t, θ1, θ2 = t[::n], θ1[::n], θ2[::n]  # downsample the data
     # Animate the double pendulum with trace
     fig = plt.figure(figsize=(15, 15))
     fl = (L1+L2)*1.1
     ax = fig.add_subplot(111, autoscale_on=False, xlim=(-fl, fl), ylim=(-fl, fl))
     ax.set_aspect('equal')
     ax.grid()
-
-    line1, = ax.plot([], [], 'o-', lw=2, color='blue')
-    line2, = ax.plot([], [], 'o-', lw=2, color='red')
+    line1, = ax.plot([], [], 'o-', lw=3, color='blue')
+    line2, = ax.plot([], [], 'o-', lw=3, color='red')
     trace, = ax.plot([], [], '-', lw=0.5, color='purple')  # Added trace
     time_template = 'time = %.1fs'
     time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
@@ -151,19 +142,18 @@ def create_animation(t, θ1, θ2, L1, L2):
         y1, y2 = [0, -L1*cos(θ1[i])], [-L1*cos(θ1[i]), -L1*cos(θ1[i]) - L2*cos(θ2[i])]
         line1.set_data(x1, y1), line2.set_data(x2, y2)
         trace.set_data(np.append(trace.get_xdata(), x2[1]), np.append(trace.get_ydata(), y2[1]))
-        time_text.set_text(time_template % (i*dt))
+        time_text.set_text(time_template % (i*dt_anim))
         return line1, line2, trace, time_text
     
-    ani = animation.FuncAnimation(fig, animate, range(1, len(t)),
-                                    interval=dt*1000, blit=True, init_func=init)
+    ani = animation.FuncAnimation(fig, animate, range(1,len(t)), interval=dt_anim*1000, blit=True, init_func=init)
     plt.show()
 
 
 if __name__ == '__main__':
 
     # Set the initial conditions
-    θ1_0 = θstar1 + np.random.normal(0, np.deg2rad(std1)) + OFFSET
-    θ2_0 = θstar2 + np.random.normal(0, np.deg2rad(std2)) + OFFSET 
+    θ1_0 = θstar1 + np.random.normal(0, np.deg2rad(std1))
+    θ2_0 = θstar2 + np.random.normal(0, np.deg2rad(std2)) 
     ω1_0 = 0.0 
     ω2_0 = 0.0
 
@@ -171,25 +161,22 @@ if __name__ == '__main__':
     t, θ1, θ2, ω1, ω2, τ1, τ2 = simulate_double_pendulum(θ1_0, θ2_0, ω1_0, ω2_0, dt, T)
 
     # Plot the angles, angular velocities, and input torques in a single figure with 3 plots, one below the other
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(10, 6))
-    θ1 = (θ1 + 2 * pi) % (2 * pi) -OFFSET # shift angles to be in range [0, 2π]
-    θ2 = (θ2 + 2 * pi) % (2 * pi) -OFFSET # shift angles to be in range [0, 2π]
-    # Convert to degrees
-    θ1deg, θ2deg = np.rad2deg(θ1), np.rad2deg(θ2)
-    ax1.plot(t, θ1deg, label='θ1')
-    ax1.plot(t, θ2deg, label='θ2')
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(10, 10))
+    θ1 = (θ1 + 2 * pi) % (2 * pi)  # shift angles to be in range [0, 2π]
+    θ2 = (θ2 + 2 * pi) % (2 * pi)  # shift angles to be in range [0, 2π]
+    ax1.plot(t, np.rad2deg(θ1), label='θ1')
+    ax1.plot(t, np.rad2deg(θ2), label='θ2')
     ax1.set_ylabel('angle (deg)')
-    ax1.grid()
+    ax1.yaxis.set_major_locator(plt.MultipleLocator(90))
+    ax1.grid(), ax2.grid(), ax3.grid()
     ax2.plot(t, ω1, label='ω1')
     ax2.plot(t, ω2, label='ω2')
     ax2.set_ylabel('angular velocity (rad/s)')
-    ax2.grid()
     ax3.plot(t, τ1, label='τ1')
     ax3.plot(t, τ2, label='τ2')
     ax3.set_xlabel('time (s)')
     ax3.set_ylabel('input torque')
-    ax3.grid()
     ax1.legend(), ax2.legend(), ax3.legend()
 
     # Animate the double pendulum with trace
-    create_animation(t, θ1, θ2, L1, L2)
+    create_animation(t, θ1, θ2, L1, L2, dt)
