@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from numpy import sin, cos, tan, pi
+import tkinter as tk
+
 
 ###################################################################################################################
 L1 = 1.1  # First arm
@@ -114,14 +116,39 @@ def simulate_double_pendulum(θ1_0, θ2_0, ω1_0, ω2_0, dt, T):
     return t, θ1, θ2, ω1, ω2, τ1, τ2
 
 
-def create_animation(t, θ1, θ2, ω1, ω2, L1, L2, dt, fps=150, simple_trace=True, trace_length=300):
+def plotting(t, θ1, θ2, ω1, ω2, L1, L2, dt, fps=150, simple_trace=True, trace_length=300):
+    #get screen size in mm
+    root = tk.Tk()
+    fw = 1920 / root.winfo_screenwidth() * root.winfo_screenmmwidth() / 25.4
+    root.update(), root.destroy()
+    # create a figure with 2 subfigures
+    mainfig = plt.figure(figsize=(fw, (9/16)*fw))
+    fig0, fig1 = mainfig.subfigures(1, 2, wspace=0.01, width_ratios=[3, 2])
+    # plots on the left, static
+    ax1, ax2, ax3 = fig1.subplots(3, 1, sharex=True)
+    θ1 = (θ1 + 2 * pi) % (2 * pi)  # shift angles to be in range [0, 2π]
+    θ2 = (θ2 + 2 * pi) % (2 * pi)  # shift angles to be in range [0, 2π]
+    ax1.plot(t, np.rad2deg(θ1), label='θ1', color='blue')
+    ax1.plot(t, np.rad2deg(θ2), label='θ2', color='red')
+    ax1.set_ylabel('angle (deg)')
+    ax1.yaxis.set_major_locator(plt.MultipleLocator(90))
+    ax1.grid(), ax2.grid(), ax3.grid()
+    ax2.plot(t, ω1, label='ω1', color='blue')
+    ax2.plot(t, ω2, label='ω2', color='red')
+    ax2.set_ylabel('angular velocity (rad/s)')
+    ax3.plot(t, τ1, label='τ1', color='blue')
+    ax3.plot(t, τ2, label='τ2', color='red')
+    ax3.set_xlabel('time (s)')
+    ax3.set_ylabel('input torque')
+    ax1.legend(), ax2.legend(), ax3.legend()
+    plt.tight_layout()
+    # animation
     dt_anim = 1 / fps # animation time step
     n = int(dt_anim / dt) # number of data points to skip
-    t, θ1, θ2, ω1, ω2 = t[::n], θ1[::n], θ2[::n], ω1[::n], ω2[::n]
+    t, θ1, θ2, ω1, ω2 = t[::n], θ1[::n], θ2[::n], ω1[::n], ω2[::n] # downsample the data
     vel = np.sqrt(ω1**2*L1**2 + ω2**2*L2**2 + 2*ω1*ω2*L1*L2*cos(θ1-θ2))  # velocity of the end effector
-    # Animate the double pendulum with trace
-    if simple_trace: fig, ax = plt.subplots(figsize=(15, 14))
-    else: fig, [ax,cax] = plt.subplots(1, 2, figsize=(15, 14), gridspec_kw={"width_ratios":[50,1]}) # create a figure and a space for colorbar
+    if simple_trace: ax = fig0.subplots(1, 1)
+    else: ax,cax = fig0.subplots(1, 2, gridspec_kw={"width_ratios":[50,1]}) # create a figure and a space for colorbar
     fl = (L1+L2)*1.1 # figure limit
     ax.set_xlim(-fl, fl), ax.set_ylim(-fl, fl)
     ax.set_aspect('equal')
@@ -161,9 +188,10 @@ def create_animation(t, θ1, θ2, ω1, ω2, L1, L2, dt, fps=150, simple_trace=Tr
         time_text.set_text(time_template % (i*dt_anim))
         return line1, line2, trace, time_text
     
-    ani = animation.FuncAnimation(fig, animate, range(1,len(t)), 
-                                  interval=dt_anim*300 if simple_trace else dt_anim*100, 
+    ani = animation.FuncAnimation(fig0, animate, range(1,len(t)), 
+                                  interval=dt_anim*1000/fps,
                                   blit=True, init_func=init)
+    
     plt.show()
 
 
@@ -178,23 +206,5 @@ if __name__ == '__main__':
     # Simulate the dynamics of the double pendulum
     t, θ1, θ2, ω1, ω2, τ1, τ2 = simulate_double_pendulum(θ1_0, θ2_0, ω1_0, ω2_0, dt, T)
 
-    # Plot the angles, angular velocities, and input torques in a single figure with 3 plots, one below the other
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(10, 10))
-    θ1 = (θ1 + 2 * pi) % (2 * pi)  # shift angles to be in range [0, 2π]
-    θ2 = (θ2 + 2 * pi) % (2 * pi)  # shift angles to be in range [0, 2π]
-    ax1.plot(t, np.rad2deg(θ1), label='θ1')
-    ax1.plot(t, np.rad2deg(θ2), label='θ2')
-    ax1.set_ylabel('angle (deg)')
-    ax1.yaxis.set_major_locator(plt.MultipleLocator(90))
-    ax1.grid(), ax2.grid(), ax3.grid()
-    ax2.plot(t, ω1, label='ω1')
-    ax2.plot(t, ω2, label='ω2')
-    ax2.set_ylabel('angular velocity (rad/s)')
-    ax3.plot(t, τ1, label='τ1')
-    ax3.plot(t, τ2, label='τ2')
-    ax3.set_xlabel('time (s)')
-    ax3.set_ylabel('input torque')
-    ax1.legend(), ax2.legend(), ax3.legend()
-
     # Animate the double pendulum with trace
-    create_animation(t, θ1, θ2, ω1, ω2, L1, L2, dt)
+    plotting(t, θ1, θ2, ω1, ω2, L1, L2, dt)
