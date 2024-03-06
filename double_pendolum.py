@@ -161,7 +161,9 @@ def create_animation(t, θ1, θ2, ω1, ω2, L1, L2, dt, fps=150, simple_trace=Tr
         time_text.set_text(time_template % (i*dt_anim))
         return line1, line2, trace, time_text
     
-    ani = animation.FuncAnimation(fig, animate, range(1,len(t)), interval=dt_anim*300, blit=True, init_func=init)
+    ani = animation.FuncAnimation(fig, animate, range(1,len(t)), 
+                                  interval=dt_anim*300 if simple_trace else dt_anim*100, 
+                                  blit=True, init_func=init)
     plt.show()
 
 
@@ -170,8 +172,8 @@ if __name__ == '__main__':
     # Set the initial conditions
     θ1_0 = θstar1 + np.random.normal(0, np.deg2rad(std1))
     θ2_0 = θstar2 + np.random.normal(0, np.deg2rad(std2)) 
-    ω1_0 = 0.0 
-    ω2_0 = 0.0
+    ω1_0 = 0 
+    ω2_0 = 0
 
     # Simulate the dynamics of the double pendulum
     t, θ1, θ2, ω1, ω2, τ1, τ2 = simulate_double_pendulum(θ1_0, θ2_0, ω1_0, ω2_0, dt, T)
