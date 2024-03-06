@@ -6,23 +6,25 @@ from numpy import sin, cos, tan, pi
 OFFSET = +pi/2
 
 ###################################################################################################################
-L1 = 1  # First arm
+L1 = 1.1  # First arm
 L2 = 1  # Second arm
 g = 9.81  # gravity
-mu1 = 0.8  # friction coefficient first joint
-mu2 = 0.8  # friction coefficient second joint
+mu1 = 0.0  # friction coefficient first joint
+mu2 = 0.0  # friction coefficient second joint
 m1 = 1.0  # mass of the first pendulum
 m2 = 1.0  # mass of the second pendulum
 
 dt = 0.01
-T = 3
+T = 30
 ###################################################################################################################
 ## CONTROLLER
-BOTH, ONLY1, ONLY2 = True, False, False # both
-# BOTH, ONLY1, ONLY2 = False, True, False # only first
-# BOTH, ONLY1, ONLY2 = False, False, True # only second
-assert sum([BOTH, ONLY1, ONLY2]) == 1, "Only one controller can be active"
-print(f'{"BOTH"if BOTH else "ONLY1" if ONLY1 else "ONLY2"} controller active')
+# BOTH, ONLY1, ONLY2, FREE = True, False, False, False # both
+# BOTH, ONLY1, ONLY2, FREE = False, True, False, False # only 1
+# BOTH, ONLY1, ONLY2, FREE = False, False, True, False # only 2
+BOTH, ONLY1, ONLY2, FREE = False, False, False, True # free
+
+assert sum([BOTH, ONLY1, ONLY2, FREE]) == 1, "Only one controller can be active"
+print(f'{"BOTH" if BOTH else "ONLY1" if ONLY1 else "ONLY2" if ONLY2 else "FREE"} controller active')
 # SETPOINT
 θstar1 = pi
 θstar2 = pi
@@ -104,7 +106,9 @@ class ONLY1Controller:
 def simulate_double_pendulum(θ1_0, θ2_0, ω1_0, ω2_0, dt, T):
     #initialize the controller
     if BOTH: controller = PIDController()
-    elif ONLY1: controller = ONLY1Controller()
+    elif ONLY1: controller = ONLY1Controller() # TODO fix this
+    elif ONLY2: controller = ONLY1Controller() # TODO
+    elif FREE: controller = PIDController(0,0,0,0,0,0)
     # Initialize arrays to store time, angles, and angular velocities
     t = np.arange(0, T, dt)
     θ1, θ2, ω1, ω2 = np.zeros_like(t), np.zeros_like(t), np.zeros_like(t), np.zeros_like(t) #states
@@ -123,30 +127,32 @@ def simulate_double_pendulum(θ1_0, θ2_0, ω1_0, ω2_0, dt, T):
 
 def create_animation(t, θ1, θ2, L1, L2):
     # Animate the double pendulum with trace
-    fig = plt.figure()
+    fig = plt.figure(figsize=(15, 15))
     fl = (L1+L2)*1.1
     ax = fig.add_subplot(111, autoscale_on=False, xlim=(-fl, fl), ylim=(-fl, fl))
     ax.set_aspect('equal')
     ax.grid()
 
-    line, = ax.plot([], [], 'o-', lw=2)
-    trace, = ax.plot([], [], '-', lw=0.5, color='gray')  # Added trace
+    line1, = ax.plot([], [], 'o-', lw=2, color='blue')
+    line2, = ax.plot([], [], 'o-', lw=2, color='red')
+    trace, = ax.plot([], [], '-', lw=0.5, color='purple')  # Added trace
     time_template = 'time = %.1fs'
     time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
 
     def init():
-        line.set_data([], [])
+        line1.set_data([], [])
+        line2.set_data([], [])
         trace.set_data([], [])  # Initialize trace
         time_text.set_text('')
-        return line, trace, time_text
+        return line1, line2, trace, time_text
 
     def animate(i):
-        x = [0, L1*sin(θ1[i]), L1*sin(θ1[i]) + L2*sin(θ2[i])]
-        y = [0, -L1*cos(θ1[i]), -L1*cos(θ1[i]) - L2*cos(θ2[i])]
-        line.set_data(x, y)
-        trace.set_data(x[:i], y[:i])  # Update trace
+        x1, x2 = [0, L1*sin(θ1[i])],[L1*sin(θ1[i]), L1*sin(θ1[i]) + L2*sin(θ2[i])]
+        y1, y2 = [0, -L1*cos(θ1[i])], [-L1*cos(θ1[i]), -L1*cos(θ1[i]) - L2*cos(θ2[i])]
+        line1.set_data(x1, y1), line2.set_data(x2, y2)
+        trace.set_data(np.append(trace.get_xdata(), x2[1]), np.append(trace.get_ydata(), y2[1]))
         time_text.set_text(time_template % (i*dt))
-        return line, trace, time_text
+        return line1, line2, trace, time_text
     
     ani = animation.FuncAnimation(fig, animate, range(1, len(t)),
                                     interval=dt*1000, blit=True, init_func=init)
