@@ -9,8 +9,8 @@ L2 = 1  # Second arm
 g = 9.81  # gravity
 mu1 = 0.0  # friction coefficient first joint
 mu2 = 0.0  # friction coefficient second joint
-m1 = 1.0  # mass of the first pendulum
-m2 = 1.0  # mass of the second pendulum
+m1 = 1  # mass of the first pendulum
+m2 = 1  # mass of the second pendulum
 
 dt = 0.001  # time step
 T = 30
@@ -114,26 +114,29 @@ def simulate_double_pendulum(θ1_0, θ2_0, ω1_0, ω2_0, dt, T):
     return t, θ1, θ2, ω1, ω2, τ1, τ2
 
 
-def create_animation(t, θ1, θ2, ω1, ω2, L1, L2, dt, fps=150):
+def create_animation(t, θ1, θ2, ω1, ω2, L1, L2, dt, fps=150, simple_trace=True):
     dt_anim = 1 / fps # animation time step
     n = int(dt_anim / dt) # number of data points to skip
     t, θ1, θ2, ω1, ω2 = t[::n], θ1[::n], θ2[::n], ω1[::n], ω2[::n]
     vel = np.sqrt(ω1**2*L1**2 + ω2**2*L2**2 + 2*ω1*ω2*L1*L2*cos(θ1-θ2))  # velocity of the end effector
     # Animate the double pendulum with trace
-    fig, [ax,cax] = plt.subplots(1, 2, figsize=(15, 14), gridspec_kw={"width_ratios":[50,1]}) # create a figure and a space for colorbar
+    if simple_trace: fig, ax = plt.subplots(figsize=(15, 14))
+    else: fig, [ax,cax] = plt.subplots(1, 2, figsize=(15, 14), gridspec_kw={"width_ratios":[50,1]}) # create a figure and a space for colorbar
     fl = (L1+L2)*1.1 # figure limit
     ax.set_xlim(-fl, fl), ax.set_ylim(-fl, fl)
     ax.set_aspect('equal')
     ax.grid()
 
-    cmap = plt.get_cmap('plasma')
-    norm = plt.Normalize(vel.min(), vel.max())
-    cbar = plt.colorbar(plt.cm.ScalarMappable(cmap=cmap, norm=norm), cax=cax)
-    cbar.set_label('velocity (m/s)')
+    if not simple_trace:
+        cmap = plt.get_cmap('plasma')
+        norm = plt.Normalize(vel.min(), vel.max())
+        cbar = plt.colorbar(plt.cm.ScalarMappable(cmap=cmap, norm=norm), cax=cax)
+        cbar.set_label('velocity (m/s)')
 
     line1, = ax.plot([], [], 'o-', lw=3, color='blue')
     line2, = ax.plot([], [], 'o-', lw=3, color='red')
-    trace = ax.scatter([], [], s=1.5, c=[])
+    if simple_trace: trace, = ax.plot([], [], lw=1, color='purple')
+    else: trace = ax.scatter([], [], s=1.5, c=[]) 
     time_template = 'time = %.1fs'
     time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
 
@@ -148,9 +151,12 @@ def create_animation(t, θ1, θ2, ω1, ω2, L1, L2, dt, fps=150):
         x1, x2 = [0, L1*sin(θ1[i])],[L1*sin(θ1[i]), L1*sin(θ1[i]) + L2*sin(θ2[i])]
         y1, y2 = [0, -L1*cos(θ1[i])], [-L1*cos(θ1[i]), -L1*cos(θ1[i]) - L2*cos(θ2[i])]
         line1.set_data(x1, y1), line2.set_data(x2, y2)
-        trace_data = np.array([L1*sin(θ1[:i]) + L2*sin(θ2[:i]), -L1*cos(θ1[:i]) - L2*cos(θ2[:i])]).T
-        trace.set_offsets(trace_data)
-        trace.set_color(cmap(norm(vel[:i])))
+        if simple_trace:
+            trace.set_data(np.append(trace.get_xdata(), x2[1]), np.append(trace.get_ydata(), y2[1]))
+        else:
+            trace_data = np.array([L1*sin(θ1[:i]) + L2*sin(θ2[:i]), -L1*cos(θ1[:i]) - L2*cos(θ2[:i])]).T
+            trace.set_offsets(trace_data)
+            trace.set_color(cmap(norm(vel[:i])))
         time_text.set_text(time_template % (i*dt_anim))
         return line1, line2, trace, time_text
     
