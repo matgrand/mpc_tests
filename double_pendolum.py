@@ -116,7 +116,8 @@ def simulate_double_pendulum(θ1_0, θ2_0, ω1_0, ω2_0, dt, T):
     return t, θ1, θ2, ω1, ω2, τ1, τ2
 
 
-def plotting(t, θ1, θ2, ω1, ω2, L1, L2, dt, fps=150, simple_trace=True, trace_length=300):
+def plotting(t, θ1, θ2, ω1, ω2, τ1, τ2, L1, L2, dt,
+             fps=150, simple_trace=False, trace_length=300):
     #get screen size in mm
     root = tk.Tk()
     fw = 1920 / root.winfo_screenwidth() * root.winfo_screenmmwidth() / 25.4
@@ -207,4 +208,4 @@ if __name__ == '__main__':
     t, θ1, θ2, ω1, ω2, τ1, τ2 = simulate_double_pendulum(θ1_0, θ2_0, ω1_0, ω2_0, dt, T)
 
     # Animate the double pendulum with trace
-    plotting(t, θ1, θ2, ω1, ω2, L1, L2, dt)
+    plotting(t, θ1, θ2, ω1, ω2, τ1, τ2, L1, L2, dt)
