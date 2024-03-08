@@ -9,7 +9,7 @@ sp.init_printing()
 ###################################################################################################################
 l1 = 1  # First arm
 l2 = 1.1  # Second arm
-g = 9.81  # grav simplify=False, rational=False)ity
+g = 9.81  # gravity
 μ1 = 0.6  # friction coefficient first joint
 μ2 = 0.6  # friction coefficient second joint
 m1 = 1.3  # mass of the first pendulum
