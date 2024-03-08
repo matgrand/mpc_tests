@@ -17,8 +17,8 @@ m2 = .1  # mass of the second pendulum
 mc = 1  # mass of the cart
 
 dt = 0.0001  # time step
-SIMT = 30
-fps = 60
+SIMT = 30 # simulation time
+fps = 60 # frames per second
 
 # use lagrangian mechanics to derive the equations of motion
 # define the symbolic variables
