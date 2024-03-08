@@ -81,11 +81,11 @@ def init():
 def animate(i):
     x, y = l*np.sin(nθ[i]), -l*np.cos(nθ[i])
     line.set_data([0, x], [0, y])
-    time_text.set_text(time_template % (i*1/fps))
+    time_text.set_text(time_template % (i/fps))
     return line, time_text
 
 ani = animation.FuncAnimation(fig, animate, np.arange(1, len(nt)), init_func=init,
-                                interval=1/fps*1000, blit=True)
+                                interval=1/fps*600, blit=True)
 plt.show()
 
 
