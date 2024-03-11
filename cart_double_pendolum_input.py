@@ -20,6 +20,7 @@ SIMT = 30 # simulation time
 fps = 60 # frames per second
 
 
+
 def create_model():
     '''returns a function that compute a time step of the equations of motion'''
     # use lagrangian mechanics to derive the equations of motion
@@ -57,22 +58,15 @@ def create_model():
     print('Lagrange equations solved')
 
     # lambdify the equations of motion
-    ddθ0 = sp.lambdify((θ0, θ1, θ2, dθ0, dθ1, dθ2, u, w1, w2, w3), ddθ0)
-    ddθ1 = sp.lambdify((θ0, θ1, θ2, dθ0, dθ1, dθ2, u, w1, w2, w3), ddθ1)
-    ddθ2 = sp.lambdify((θ0, θ1, θ2, dθ0, dθ1, dθ2, u, w1, w2, w3), ddθ2)
+    f = sp.lambdify((θ0, θ1, θ2, dθ0, dθ1, dθ2, u, w1, w2, w3), [ddθ0, ddθ1, ddθ2], 'numpy')
 
-    def model(θ0, θ1, θ2, dθ0, dθ1, dθ2, u, w1, w2, w3, dt):
-        ddx0 = ddθ0(θ0, θ1, θ2, dθ0, dθ1, dθ2, u, w1, w2, w3)
-        ddx1 = ddθ1(θ0, θ1, θ2, dθ0, dθ1, dθ2, u, w1, w2, w3)
-        ddx2 = ddθ2(θ0, θ1, θ2, dθ0, dθ1, dθ2, u, w1, w2, w3)
-        dx0 = dθ0 + ddx0*dt
-        dx1 = dθ1 + ddx1*dt
-        dx2 = dθ2 + ddx2*dt
-        x0 = θ0 + dx0*dt
-        x1 = θ1 + dx1*dt
-        x2 = θ2 + dx2*dt
-        return x0, x1, x2, dx0, dx1, dx2
-    
+    def model(x, u, w, dt):
+        '''compute a time step of the equations of motion using euler's method'''
+        x, dx = x[:3], x[3:] #split the state vector into position and velocity
+        dx = dx + np.array(f(*x, *dx, u, *w))*dt #compute the new velocity
+        x = x + dx*dt #compute the new position
+        return np.concatenate([x, dx]) #return the new state vector
+        
     return model
 
 if __name__ == '__main__':
@@ -82,25 +76,21 @@ if __name__ == '__main__':
     # control input
     u = 0
     # disturbance forces
-    w1 = 0
-    w2 = 0
-    w3 = 0
+    w = [0, 0, 0]
 
     # time vector
     t = np.arange(0, SIMT, dt)
     # initialize the state vector
-    θ0, θ1, θ2, dθ0, dθ1, dθ2 = [np.zeros(len(t)) for _ in range(6)]
+    x = np.zeros((len(t), 6))
     # initial conditions
-    θ1[0] = 0.1
-    θ2[0] = -0.1
+    x[0, 1], x[0, 2] = 0.1, -0.1
 
     # simulate the system
     for i in tqdm(range(1, len(t))):
-        θ0[i], θ1[i], θ2[i], dθ0[i], dθ1[i], dθ2[i] = model(θ0[i-1], θ1[i-1], θ2[i-1], dθ0[i-1], dθ1[i-1], dθ2[i-1], u, w1, w2, w3, dt)
-    
+        x[i] = model(x[i-1], u, w, dt)
+        
     # animate the system
-    n = int(1/fps/dt) # display one frame every n time steps
-    θ0, θ1, θ2 = θ0[::n], θ1[::n], θ2[::n]
+    x = x[::int(1/fps/dt)] # display one frame every n time steps]
     fig, ax = plt.subplots(figsize=(10, 10))
     lim = 1.1*(l1+l2)
     ax.set_xlim(-lim, lim), ax.set_ylim(-lim, lim)
@@ -123,14 +113,14 @@ if __name__ == '__main__':
         return line1, line2, cart, time_text
     
     def animate(i):
-        x1, y1 = θ0[i] + l1*np.sin(θ1[i]), l1*np.cos(θ1[i])
-        x2, y2 = x1 + l2*np.sin(θ2[i]), y1 + l2*np.cos(θ2[i])
-        line1.set_data([θ0[i], x1], [0, y1])
+        x1, y1 = x[i,0] + l1*np.sin(x[i,1]), l1*np.cos(x[i,1])
+        x2, y2 = x1 + l2*np.sin(x[i,2]), y1 + l2*np.cos(x[i,2])
+        line1.set_data([x[i,0], x1], [0, y1])
         line2.set_data([x1, x2], [y1, y2])
-        cart.set_data([θ0[i]-0.1, θ0[i]+0.1], [0,0])
+        cart.set_data([x[i,0]-0.1, x[i,0]+0.1], [0,0])
         time_text.set_text(time_template % (i/fps))
         return line1, line2, cart, time_text
     
-    ani = animation.FuncAnimation(fig, animate, range(0, len(θ0)), init_func=init, blit=True, interval=500/fps)
+    ani = animation.FuncAnimation(fig, animate, range(0, len(x)), init_func=init, blit=True, interval=500/fps)
 
     plt.show()
