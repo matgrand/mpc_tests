@@ -10,8 +10,8 @@ sp.init_printing()
 l1 = 1  # First arm
 l2 = 1.1  # Second arm
 g = 9.81  # gravity
-μ1 = 0.6  # friction coefficient first joint
-μ2 = 0.6  # friction coefficient second joint
+μ1 = 0.4  # friction coefficient first joint
+μ2 = 0.2  # friction coefficient second joint
 m1 = 1.3  # mass of the first pendulum
 m2 = .1  # mass of the second pendulum
 mc = 1  # mass of the cart
@@ -117,9 +117,9 @@ ax.grid(True)
 ax.set_xlabel('x [m]'), ax.set_ylabel('y [m]')
 ax.set_title('Double pendulum on a cart')
 
-line1, = ax.plot([], [], 'o-', lw=2, color='blue')
+cart, = ax.plot([], [], 'o-', lw=2, color='black')
 line2, = ax.plot([], [], 'o-', lw=2, color='red')
-cart, = ax.plot([], [], 's', lw=2, color='black')
+line1, = ax.plot([], [], 'o-', lw=2, color='blue')
 
 time_template = 'time = %.1fs'
 time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
@@ -136,9 +136,9 @@ def animate(i):
     y1 = -l1*np.cos(nθ1[i])
     x2 = x1 + l2*np.sin(nθ2[i])
     y2 = y1 - l2*np.cos(nθ2[i])
-    line1.set_data([nxc[i], x1], [0, y1])
+    cart.set_data([nxc[i]-0.1, nxc[i]+0.1], [0, 0])
     line2.set_data([x1, x2], [y1, y2])
-    cart.set_data([nxc[i], 0])
+    line1.set_data([nxc[i], x1], [0, y1])
     time_text.set_text(time_template % (i/fps))
     return line1, line2, cart, time_text
 
