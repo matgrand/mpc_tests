@@ -3,26 +3,26 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import sympy as sp
 from tqdm import tqdm
+import os, pickle
 
 # parameters
 l1 = 1  # First arm
-l2 = 1.1  # Second arm
+l2 = 1  # Second arm
 g = 9.81  # gravity
-μ0 = 0.0  # friction coefficient of the cart
-μ1 = 0.0  # friction coefficient first joint
-μ2 = 0.0  # friction coefficient second joint
+μ0 = 0.5  # friction coefficient of the cart
+μ1 = 0.5  # friction coefficient first joint
+μ2 = 0.5  # friction coefficient second joint
 m0 = 1  # mass of the cart
 m1 = 1  # mass of the first pendulum
 m2 = 1  # mass of the second pendulum
 
-dt = 0.0001  # time step
+dt = 0.001  # time step
 SIMT = 30 # simulation time
 fps = 60 # frames per second
 
-
-
-def create_model():
+def create_model(l1, l2, g, μ0, μ1, μ2, m0, m1, m2):
     '''returns a function that compute a time step of the equations of motion'''
+    eq_path = f'models/cart_double_{l1}_{l2}_{g}_{μ0}_{μ1}_{μ2}_{m0}_{m1}_{m2}.txt'
     # use lagrangian mechanics to derive the equations of motion
     t = sp.symbols('t') # time
     θ0, θ1, θ2 = sp.symbols('θ0 θ1 θ2', cls=sp.Function) #states
@@ -33,29 +33,44 @@ def create_model():
     w1, w2, w3 = sp.symbols('w_1 w_2 w_3', cls=sp.Function)
     w1, w2, w3 = w1(t), w2(t), w3(t) # disturbance forces
 
-    x1, y1 = θ0 + l1*sp.sin(θ1), l1*sp.cos(θ1) # position of the first pendulum
-    x2, y2 = x1 + l2*sp.sin(θ2), y1 + l2*sp.cos(θ2) # position of the second pendulum
-    dx1, dy1 = x1.diff(t), y1.diff(t) # velocity of the first pendulum
-    dx2, dy2 = x2.diff(t), y2.diff(t) # velocity of the second pendulum
+    if not os.path.exists(eq_path): # if the equations of motion are not saved
+        x1, y1 = θ0 + l1*sp.sin(θ1), l1*sp.cos(θ1) # position of the first pendulum
+        x2, y2 = x1 + l2*sp.sin(θ2), y1 + l2*sp.cos(θ2) # position of the second pendulum
+        dx1, dy1 = x1.diff(t), y1.diff(t) # velocity of the first pendulum
+        dx2, dy2 = x2.diff(t), y2.diff(t) # velocity of the second pendulum
 
-    T = 1/2 * (m0*dθ0**2 + m1*(dx1**2+dy1**2) + m2*(dx2**2+dy2**2)) #kinetic energy
-    V = m1*g*y1 + m2*g*y2 #potential energy
-    L = T - V #lagrangian
+        T = 1/2 * (m0*dθ0**2 + m1*(dx1**2+dy1**2) + m2*(dx2**2+dy2**2)) #kinetic energy
+        V = m1*g*y1 + m2*g*y2 #potential energy
+        L = T - V #lagrangian
 
-    # get the lagrange equations with the control input and disturbance forces
-    LEQθ0 = (L.diff(θ0) - (L.diff(dθ0)).diff(t) -μ0*dθ0 +u +w1).simplify() # lagrange equation for the cart
-    LEQθ1 = (L.diff(θ1) - (L.diff(dθ1)).diff(t) -μ1*dθ1 +w2).simplify() # lagrange equation for the first joint
-    LEQθ2 = (L.diff(θ2) - (L.diff(dθ2)).diff(t) -μ2*dθ2 +w3).simplify() # lagrange equation for the second joint
+        # get the lagrange equations with the control input and disturbance forces
+        LEQθ0 = (L.diff(θ0) - (L.diff(dθ0)).diff(t) -μ0*dθ0 +u +w1) # lagrange equation for the cart
+        LEQθ1 = (L.diff(θ1) - (L.diff(dθ1)).diff(t) -μ1*dθ1 +w2) # lagrange equation for the first joint
+        LEQθ2 = (L.diff(θ2) - (L.diff(dθ2)).diff(t) -μ2*dθ2 +w3) # lagrange equation for the second joint
 
-    print('Lagrange equations derived')
+        print('Lagrange equations derived')
 
-    # solve the lagrange equations for the accelerations
-    sol = sp.solve([LEQθ0, LEQθ1, LEQθ2], [ddθ0, ddθ1, ddθ2])
-    ddθ0 = sol[ddθ0].simplify() #- μ0*dθ0 + u + w1
-    ddθ1 = sol[ddθ1].simplify() #- μ1*dθ1 + w2
-    ddθ2 = sol[ddθ2].simplify() #- μ2*dθ2 + w3
+        # solve the lagrange equations for the accelerations
+        sol = sp.solve([LEQθ0, LEQθ1, LEQθ2], [ddθ0, ddθ1, ddθ2])
+        ddθ0 = sol[ddθ0].simplify() #- μ0*dθ0 + u + w1
+        ddθ1 = sol[ddθ1].simplify() #- μ1*dθ1 + w2
+        ddθ2 = sol[ddθ2].simplify() #- μ2*dθ2 + w3
 
-    print('Lagrange equations solved')
+        #save the equations of motion as txt file
+        with open(eq_path, 'w') as file:
+            file.write(str(ddθ0))
+            file.write('\n')
+            file.write(str(ddθ1))
+            file.write('\n')
+            file.write(str(ddθ2))
+        print('Lagrange equations solved')
+        del ddθ0, ddθ1, ddθ2, LEQθ0, LEQθ1, LEQθ2
+
+    #load the equations of motion from the txt file
+    with open(eq_path, 'r') as file:
+        ddθ0 = sp.sympify(file.readline())
+        ddθ1 = sp.sympify(file.readline())
+        ddθ2 = sp.sympify(file.readline())
 
     # lambdify the equations of motion
     f = sp.lambdify((θ0, θ1, θ2, dθ0, dθ1, dθ2, u, w1, w2, w3), [ddθ0, ddθ1, ddθ2], 'numpy')
@@ -66,31 +81,14 @@ def create_model():
         dx = dx + np.array(f(*x, *dx, u, *w))*dt #compute the new velocity
         x = x + dx*dt #compute the new position
         return np.concatenate([x, dx]) #return the new state vector
-        
+
     return model
 
-if __name__ == '__main__':
-    # create the model
-    model = create_model()
-
-    # control input
-    u = 0
-    # disturbance forces
-    w = [0, 0, 0]
-
-    # time vector
-    t = np.arange(0, SIMT, dt)
-    # initialize the state vector
-    x = np.zeros((len(t), 6))
-    # initial conditions
-    x[0, 1], x[0, 2] = 0.1, -0.1
-
-    # simulate the system
-    for i in tqdm(range(1, len(t))):
-        x[i] = model(x[i-1], u, w, dt)
-        
+def animate(x, fps):
     # animate the system
     x = x[::int(1/fps/dt)] # display one frame every n time steps]
+    wait_s = 2 # wait time in seconds
+    x = np.concatenate([np.array([x[0]]*int(wait_s*fps)), x]) 
     fig, ax = plt.subplots(figsize=(10, 10))
     lim = 1.1*(l1+l2)
     ax.set_xlim(-lim, lim), ax.set_ylim(-lim, lim)
@@ -98,9 +96,9 @@ if __name__ == '__main__':
     ax.grid(True)
     ax.set_xlabel('x [m]'), ax.set_ylabel('y [m]')
 
-    line1 = ax.plot([], [], 'o-', lw=2)[0]
-    line2 = ax.plot([], [], 'o-', lw=2)[0]
-    cart = ax.plot([], [], 'o-', lw=2)[0]
+    cart = ax.plot([], [], 'o-',  lw=5, color='black')[0]
+    line2 = ax.plot([], [], 'o-', lw=5, color='red')[0]
+    line1 = ax.plot([], [], 'o-', lw=5, color='blue')[0]
 
     time_template = 'time = %.1fs'
     time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
@@ -115,12 +113,58 @@ if __name__ == '__main__':
     def animate(i):
         x1, y1 = x[i,0] + l1*np.sin(x[i,1]), l1*np.cos(x[i,1])
         x2, y2 = x1 + l2*np.sin(x[i,2]), y1 + l2*np.cos(x[i,2])
+        cart.set_data([x[i,0]-0.1, x[i,0]+0.1], [0,0])
         line1.set_data([x[i,0], x1], [0, y1])
         line2.set_data([x1, x2], [y1, y2])
-        cart.set_data([x[i,0]-0.1, x[i,0]+0.1], [0,0])
-        time_text.set_text(time_template % (i/fps))
+        time_text.set_text(time_template % (-wait_s+i/fps))
         return line1, line2, cart, time_text
     
-    ani = animation.FuncAnimation(fig, animate, range(0, len(x)), init_func=init, blit=True, interval=500/fps)
+    ani = animation.FuncAnimation(fig, animate, range(0, len(x)), init_func=init, blit=True, interval=300/fps)
 
     plt.show()
+
+class PID():
+    '''simple PID controller'''
+    def __init__(self, kp, ki, kd, dt):
+        self.kp, self.ki, self.kd = kp, ki, kd
+        self.dt = dt
+        self.integral = 0
+        self.previous_error = 0
+
+    def control(self, error):
+        '''compute the control input'''
+        self.integral += error*self.dt
+        derivative = (error - self.previous_error)/self.dt
+        self.previous_error = error
+        return self.kp*error + self.ki*self.integral + self.kd*derivative
+    
+if __name__ == '__main__':
+    # create the model
+    model = create_model(l1, l2, g, μ0, μ1, μ2, m0, m1, m2)
+
+    #controller
+    pid = PID(50, 5, 10, dt)
+
+    # time vector
+    t = np.arange(0, SIMT, dt)
+    # initialize the state vector
+    x = np.zeros((len(t), 6))
+    # initial conditions
+    x[0, 1], x[0, 2] = 0, 0
+
+    # control input
+    u = 0
+    # disturbance forces
+    w = [0, 0, 0]
+
+    # simulate the system
+    for i in tqdm(range(1, len(t))):
+        w = np.random.normal(0, .5, 3) # generate random disturbance forces
+        # u = pid.control(1-x[i-1, 0])
+        u = 0
+        x[i] = model(x[i-1], u, w, dt)
+
+   
+   
+   
+    animate(x, fps)
