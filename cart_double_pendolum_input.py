@@ -9,18 +9,18 @@ import os
 l1 = 1  # First arm
 l2 = 1  # Second arm
 g = 9.81  # gravity
-μ0 = 0.8  # friction coefficient of the cart
-μ1 = 0.1  # friction coefficient first joint
-μ2 = 0.1  # friction coefficient second joint
+μ0 = 0.4  # friction coefficient of the cart
+μ1 = 0.4  # friction coefficient first joint
+μ2 = 0.4  # friction coefficient second joint
 m0 = 1  # mass of the cart
 m1 = 1  # mass of the first pendulum
 m2 = 1  # mass of the second pendulum
 
-dt = 0.01  # time step
-SIMT = 3 # simulation time
+dt = 0.0001  # time step
+SIMT = 15 # simulation time
 fps = 60 # frames per second
 
-def create_model(l1, l2, g, μ0, μ1, μ2, m0, m1, m2):
+def create_model(l1, l2, g, μ0, μ1, μ2, m0, m1, m2) -> 'function':
     '''returns a function that compute a time step of the equations of motion'''
     eq_path = f'models/cart_double_{l1}_{l2}_{g}_{μ0}_{μ1}_{μ2}_{m0}_{m1}_{m2}.txt'
     # use lagrangian mechanics to derive the equations of motion
@@ -134,12 +134,14 @@ class PID():
         self.previous_error = error
         return self.kp*error + self.ki*self.integral + self.kd*derivative
     
+
+
 if __name__ == '__main__':
     # create the model
     model_step = create_model(l1, l2, g, μ0, μ1, μ2, m0, m1, m2)
 
     #controller
-    pid = PID(50, 5, 10, dt)
+    pid = PID(5, .5, 1, dt)
 
     # control input
     u = 0
@@ -151,76 +153,26 @@ if __name__ == '__main__':
     # initialize the state vector
     x = np.zeros((len(t), 6))
     # initial conditions
-    x[0, 1], x[0, 2] = -0.1, 0.1
+    x[0, 1], x[0, 2] = 1,-1
+
     # simulate the system
     for i in tqdm(range(1, len(t))):
         # w = np.random.normal(0, .5, 3) # generate random disturbance forces
-        # u = pid.control(1-x[i-1, 0])
-        u, w = 0, [0, 0, 0]
+        u = pid.control(-x[i-1, 0])
+        # u = 0
+        w = [0, 0, 0]
         x[i] = model_step(x[i-1], u, w, dt)
+
+
+    # plot x
+    fig, ax = plt.subplots(2, 3, figsize=(16, 9))
+    titles = ['x', 'θ1', 'θ2', 'dx', 'dθ1', 'dθ2']
+    for a in range(2):
+        for b in range(3):
+            ax[a, b].plot(t, x[:, 3*a+b])
+            ax[a, b].set_title(titles[3*a+b])
+            ax[a, b].grid(True)
+
     # a1 = animate(x, dt, fps)
     
-    #plot the state vector
-    fig, ax = plt.subplots(3, 2, figsize=(10, 10))
-    ax[0, 0].plot(t, x[:, 0])
-    ax[0, 0].set_title('x')
-    ax[0, 1].plot(t, x[:, 3])
-    ax[0, 1].set_title('dx')
-    ax[1, 0].plot(t, x[:, 1])
-    ax[1, 0].set_title('θ1')
-    ax[1, 1].plot(t, x[:, 4])
-    ax[1, 1].set_title('dθ1')
-    ax[2, 0].plot(t, x[:, 2])
-    ax[2, 0].set_title('θ2')
-    ax[2, 1].plot(t, x[:, 5])
-    ax[2, 1].set_title('dθ2')
-    plt.tight_layout()
-    #grid on each plot
-    for i in range(3):
-        for j in range(2):
-            ax[i, j].grid(True)
-
-    # time vector
-    dt = 0.1
-    t = np.arange(0, SIMT, dt)
-    # initialize the state vector
-    x = np.zeros((len(t), 6))
-    # initial conditions
-    x[0, 1], x[0, 2] = -0.1, 0.1
-    # simulate the system
-    for i in tqdm(range(1, len(t))):
-        u, w = 0, [0, 0, 0]
-        x[i] = model_step(x[i-1], u, w, dt)
-    # a2 = animate(x, dt, fps)
-        
-    #plot on top of each other
-    ax[0, 0].plot(t, x[:, 0])
-    ax[0, 1].plot(t, x[:, 3])
-    ax[1, 0].plot(t, x[:, 1])
-    ax[1, 1].plot(t, x[:, 4])
-    ax[2, 0].plot(t, x[:, 2])
-    ax[2, 1].plot(t, x[:, 5])
-
-    # time vector
-    dt = 0.00001
-    t = np.arange(0, SIMT, dt)
-    # initialize the state vector
-    x = np.zeros((len(t), 6))
-    # initial conditions
-    x[0, 1], x[0, 2] = -0.1, 0.1
-    # simulate the system
-    for i in tqdm(range(1, len(t))):
-        u, w = 0, [0, 0, 0]
-        x[i] = model_step(x[i-1], u, w, dt)
-    # a2 = animate(x, dt, fps)
-        
-    #plot on top of each other
-    ax[0, 0].plot(t, x[:, 0])
-    ax[0, 1].plot(t, x[:, 3])
-    ax[1, 0].plot(t, x[:, 1])
-    ax[1, 1].plot(t, x[:, 4])
-    ax[2, 0].plot(t, x[:, 2])
-    ax[2, 1].plot(t, x[:, 5])
-
-    # show a1 and a2
-    plt.show()  
+    plt.show()
