@@ -3,21 +3,21 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import sympy as sp
 from tqdm import tqdm
-import os, pickle
+import os
 
 # parameters
 l1 = 1  # First arm
 l2 = 1  # Second arm
 g = 9.81  # gravity
-μ0 = 0.5  # friction coefficient of the cart
-μ1 = 0.5  # friction coefficient first joint
-μ2 = 0.5  # friction coefficient second joint
+μ0 = 0.8  # friction coefficient of the cart
+μ1 = 0.1  # friction coefficient first joint
+μ2 = 0.1  # friction coefficient second joint
 m0 = 1  # mass of the cart
 m1 = 1  # mass of the first pendulum
 m2 = 1  # mass of the second pendulum
 
-dt = 0.001  # time step
-SIMT = 30 # simulation time
+dt = 0.01  # time step
+SIMT = 3 # simulation time
 fps = 60 # frames per second
 
 def create_model(l1, l2, g, μ0, μ1, μ2, m0, m1, m2):
@@ -75,41 +75,38 @@ def create_model(l1, l2, g, μ0, μ1, μ2, m0, m1, m2):
     # lambdify the equations of motion
     f = sp.lambdify((θ0, θ1, θ2, dθ0, dθ1, dθ2, u, w1, w2, w3), [ddθ0, ddθ1, ddθ2], 'numpy')
 
-    def model(x, u, w, dt):
+    def model_step(x, u, w, dt):
         '''compute a time step of the equations of motion using euler's method'''
         x, dx = x[:3], x[3:] #split the state vector into position and velocity
         dx = dx + np.array(f(*x, *dx, u, *w))*dt #compute the new velocity
         x = x + dx*dt #compute the new position
         return np.concatenate([x, dx]) #return the new state vector
 
-    return model
+    return model_step
 
-def animate(x, fps):
+def animate(x, dt, fps, fig_name=None, figsize=(6,6)):
     # animate the system
-    x = x[::int(1/fps/dt)] # display one frame every n time steps]
-    wait_s = 2 # wait time in seconds
+    x = x[::int(1/fps/dt)] # display one frame every n time steps
+    wait_s = 1 # wait time in seconds
     x = np.concatenate([np.array([x[0]]*int(wait_s*fps)), x]) 
-    fig, ax = plt.subplots(figsize=(10, 10))
+    #create a new figure
+    fig, ax = plt.subplots(figsize=figsize)
     lim = 1.1*(l1+l2)
     ax.set_xlim(-lim, lim), ax.set_ylim(-lim, lim)
     ax.set_aspect('equal')
     ax.grid(True)
-    ax.set_xlabel('x [m]'), ax.set_ylabel('y [m]')
-
+    # ax.set_xlabel('x [m]'), ax.set_ylabel('y [m]')
     cart = ax.plot([], [], 'o-',  lw=5, color='black')[0]
     line2 = ax.plot([], [], 'o-', lw=5, color='red')[0]
     line1 = ax.plot([], [], 'o-', lw=5, color='blue')[0]
-
     time_template = 'time = %.1fs'
     time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
-
     def init():
         line1.set_data([], [])
         line2.set_data([], [])
         cart.set_data([], [])
         time_text.set_text('')
         return line1, line2, cart, time_text
-    
     def animate(i):
         x1, y1 = x[i,0] + l1*np.sin(x[i,1]), l1*np.cos(x[i,1])
         x2, y2 = x1 + l2*np.sin(x[i,2]), y1 + l2*np.cos(x[i,2])
@@ -118,10 +115,9 @@ def animate(x, fps):
         line2.set_data([x1, x2], [y1, y2])
         time_text.set_text(time_template % (-wait_s+i/fps))
         return line1, line2, cart, time_text
-    
-    ani = animation.FuncAnimation(fig, animate, range(0, len(x)), init_func=init, blit=True, interval=300/fps)
-
-    plt.show()
+    anim = animation.FuncAnimation(fig, animate, range(0, len(x)), init_func=init, blit=True, interval=300/fps)
+    plt.tight_layout()
+    return anim
 
 class PID():
     '''simple PID controller'''
@@ -140,31 +136,91 @@ class PID():
     
 if __name__ == '__main__':
     # create the model
-    model = create_model(l1, l2, g, μ0, μ1, μ2, m0, m1, m2)
+    model_step = create_model(l1, l2, g, μ0, μ1, μ2, m0, m1, m2)
 
     #controller
     pid = PID(50, 5, 10, dt)
-
-    # time vector
-    t = np.arange(0, SIMT, dt)
-    # initialize the state vector
-    x = np.zeros((len(t), 6))
-    # initial conditions
-    x[0, 1], x[0, 2] = 0, 0
 
     # control input
     u = 0
     # disturbance forces
     w = [0, 0, 0]
 
+    # time vector
+    t = np.arange(0, SIMT, dt)
+    # initialize the state vector
+    x = np.zeros((len(t), 6))
+    # initial conditions
+    x[0, 1], x[0, 2] = -0.1, 0.1
     # simulate the system
     for i in tqdm(range(1, len(t))):
-        w = np.random.normal(0, .5, 3) # generate random disturbance forces
+        # w = np.random.normal(0, .5, 3) # generate random disturbance forces
         # u = pid.control(1-x[i-1, 0])
-        u = 0
-        x[i] = model(x[i-1], u, w, dt)
+        u, w = 0, [0, 0, 0]
+        x[i] = model_step(x[i-1], u, w, dt)
+    # a1 = animate(x, dt, fps)
+    
+    #plot the state vector
+    fig, ax = plt.subplots(3, 2, figsize=(10, 10))
+    ax[0, 0].plot(t, x[:, 0])
+    ax[0, 0].set_title('x')
+    ax[0, 1].plot(t, x[:, 3])
+    ax[0, 1].set_title('dx')
+    ax[1, 0].plot(t, x[:, 1])
+    ax[1, 0].set_title('θ1')
+    ax[1, 1].plot(t, x[:, 4])
+    ax[1, 1].set_title('dθ1')
+    ax[2, 0].plot(t, x[:, 2])
+    ax[2, 0].set_title('θ2')
+    ax[2, 1].plot(t, x[:, 5])
+    ax[2, 1].set_title('dθ2')
+    plt.tight_layout()
+    #grid on each plot
+    for i in range(3):
+        for j in range(2):
+            ax[i, j].grid(True)
 
-   
-   
-   
-    animate(x, fps)
+    # time vector
+    dt = 0.1
+    t = np.arange(0, SIMT, dt)
+    # initialize the state vector
+    x = np.zeros((len(t), 6))
+    # initial conditions
+    x[0, 1], x[0, 2] = -0.1, 0.1
+    # simulate the system
+    for i in tqdm(range(1, len(t))):
+        u, w = 0, [0, 0, 0]
+        x[i] = model_step(x[i-1], u, w, dt)
+    # a2 = animate(x, dt, fps)
+        
+    #plot on top of each other
+    ax[0, 0].plot(t, x[:, 0])
+    ax[0, 1].plot(t, x[:, 3])
+    ax[1, 0].plot(t, x[:, 1])
+    ax[1, 1].plot(t, x[:, 4])
+    ax[2, 0].plot(t, x[:, 2])
+    ax[2, 1].plot(t, x[:, 5])
+
+    # time vector
+    dt = 0.00001
+    t = np.arange(0, SIMT, dt)
+    # initialize the state vector
+    x = np.zeros((len(t), 6))
+    # initial conditions
+    x[0, 1], x[0, 2] = -0.1, 0.1
+    # simulate the system
+    for i in tqdm(range(1, len(t))):
+        u, w = 0, [0, 0, 0]
+        x[i] = model_step(x[i-1], u, w, dt)
+    # a2 = animate(x, dt, fps)
+        
+    #plot on top of each other
+    ax[0, 0].plot(t, x[:, 0])
+    ax[0, 1].plot(t, x[:, 3])
+    ax[1, 0].plot(t, x[:, 1])
+    ax[1, 1].plot(t, x[:, 4])
+    ax[2, 0].plot(t, x[:, 2])
+    ax[2, 1].plot(t, x[:, 5])
+
+    # show a1 and a2
+    plt.show()  
