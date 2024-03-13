@@ -52,6 +52,17 @@ def step(x, u, dt):
     θ = θ + dθ*dt # integrate the velocity
     return np.array([θ, dθ]) # return the new state vector
 
+###############################
+# MODEL PREDICTIVE CONTROL
+###############################
+
+# cost function
+J = None
+
+
+
+
+
 
 # numerical integration
 t = np.arange(0, simT, dt)
@@ -67,6 +78,10 @@ for i in tqdm(range(1, len(t))):
 T = fT(*x.T) # kinetic energy
 V = fV(*x.T) # potential energy
 
+
+
+
+
 # plot the state and energies
 fig, ax = plt.subplots(4, 1, figsize=(18,12))
 ax[0].plot(t, x[:,0], label='θ, angle', color=C)
@@ -78,6 +93,7 @@ ax[1].grid(True)
 ax[2].plot(t, T, label='T, kinetic energy', color='red')
 ax[2].plot(t, V, label='V, potential energy', color='blue')
 ax[2].set_ylabel('Energy [J]')
+# ax[2].set_yscale('log')
 ax[2].legend()
 ax[2].plot(t, T+V, '--',label='T+V, total energy', color='black')
 ax[2].legend(), ax[2].grid(True)
