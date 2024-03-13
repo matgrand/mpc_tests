@@ -48,10 +48,12 @@ class PhysicalSystem():
             L = T - V #lagrangian
 
             # get the lagrange equations with the control input and disturbance forces
-            LEQθ0 = (L.diff(θ0) - (L.diff(dθ0)).diff(t) -μ0*dθ0 +u +w1) # lagrange equation for the cart
-            LEQθ1 = (L.diff(θ1) - (L.diff(dθ1)).diff(t) -μ1*dθ1 +w2) # lagrange equation for the first joint
-            LEQθ2 = (L.diff(θ2) - (L.diff(dθ2)).diff(t) -μ2*dθ2 +w3) # lagrange equation for the second joint
+            LEQθ0 = L.diff(θ0) - (L.diff(dθ0)).diff(t) -μ0*dθ0 +u +w1 # lagrange equation for the cart
+            LEQθ1 = L.diff(θ1) - (L.diff(dθ1)).diff(t) -μ1*dθ1 +w2 # lagrange equation for the first joint
+            LEQθ2 = L.diff(θ2) - (L.diff(dθ2)).diff(t) -μ2*dθ2 +w3 # lagrange equation for the second joint
             print('Lagrange equations derived')
+
+            print(f'leq0: {LEQθ0}')
 
             # solve the lagrange equations for the accelerations
             sol = sp.solve([LEQθ0, LEQθ1, LEQθ2], [ddθ0, ddθ1, ddθ2], simplify=False)
@@ -118,34 +120,25 @@ if __name__ == '__main__':
     #controller
     pid = PID(5, .5, 1, dt)
 
-    # control input
-    u = 0
-    # disturbance forces
-    w = [0, 0, 0]
-
     # time vector
     t = np.arange(0, SIMT, dt)
     # initialize the state vector
     x = np.zeros((len(t), 6))
+    u = np.zeros(len(t))
     # initial conditions
     x[0, 1], x[0, 2] = 1,-1
 
     # simulate the system
     for i in tqdm(range(1, len(t))):
         # w = np.random.normal(0, .5, 3) # generate random disturbance forces
-        u = pid.control(-x[i-1, 0])
-        # u = 0
+        # ui = pid.control(-x[i-1, 0])
+        ui = 13*np.sin(2*np.pi*1.5*t[i]) # control input
         w = [0, 0, 0]
-        x[i] = sys.step(x[i-1], u, w, dt) 
+        x[i] = sys.step(x[i-1], ui, w, dt) 
+        u[i] = ui
 
     T = sys.kinetic_energy(x)
     V = sys.potential_energy(x)
-
-
-
-
-
-
 
     # plot 
     fig, ax = plt.subplots(3, 3, figsize=(18, 12))
@@ -163,6 +156,10 @@ if __name__ == '__main__':
     ax[2, 0].legend()
     ax[2, 0].grid(True)
     ax[2, 0].set_yscale('log')
+    ax[2, 1].plot(t, u, label='u, control input', color=C)
+    ax[2, 1].set_title('Control input')
+    ax[2, 1].grid(True)
     plt.tight_layout()
-    a1 = animate_cart_double(x, dt, fps, l1, l2)
+
+    a1 = animate_cart_double(x, u, dt, fps, l1, l2)
     plt.show()
