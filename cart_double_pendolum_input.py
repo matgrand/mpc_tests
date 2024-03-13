@@ -1,17 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 import sympy as sp
 from tqdm import tqdm
 import os
-
+from plotting import animate_cart_double, C
 # parameters
 l1 = 1  # First arm
 l2 = 1  # Second arm
 g = 9.81  # gravity
-μ0 = 0.0  # friction coefficient of the cart
-μ1 = 0.0  # friction coefficient first joint
-μ2 = 0.0  # friction coefficient second joint
+μ0 = 0.4  # friction coefficient of the cart
+μ1 = 0.4  # friction coefficient first joint
+μ2 = 0.4  # friction coefficient second joint
 m0 = 1  # mass of the cart
 m1 = 1  # mass of the first pendulum
 m2 = 1  # mass of the second pendulum
@@ -94,42 +93,6 @@ class PhysicalSystem():
             V = m1*g*y1 + m2*g*y2
         '''
         return self.fV(*x.T)
-    
-
-def animate(x, dt, fps, fig_name=None, figsize=(6,6)):
-    # animate the system
-    x = x[::int(1/fps/dt)] # display one frame every n time steps
-    wait_s = 1 # wait time in seconds
-    x = np.concatenate([np.array([x[0]]*int(wait_s*fps)), x]) 
-    #create a new figure
-    fig, ax = plt.subplots(figsize=figsize)
-    lim = 1.1*(l1+l2)
-    ax.set_xlim(-lim, lim), ax.set_ylim(-lim, lim)
-    ax.set_aspect('equal')
-    ax.grid(True)
-    # ax.set_xlabel('x [m]'), ax.set_ylabel('y [m]')
-    cart = ax.plot([-lim,lim], [0,0], '-',  lw=1, color='black')[0]
-    line2 = ax.plot([], [], 'o-', lw=5, color='red')[0]
-    line1 = ax.plot([], [], 'o-', lw=5, color='blue')[0]
-    time_template = 'time = %.1fs'
-    time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
-    def init():
-        line1.set_data([], [])
-        line2.set_data([], [])
-        # cart.set_data([], [])
-        time_text.set_text('')
-        return line1, line2, cart, time_text
-    def animate(i):
-        x1, y1 = x[i,0] + l1*np.sin(x[i,1]), l1*np.cos(x[i,1])
-        x2, y2 = x1 + l2*np.sin(x[i,2]), y1 + l2*np.cos(x[i,2])
-        # cart.set_data([x[i,0]-0.1, x[i,0]+0.1], [0,0])
-        line1.set_data([x[i,0], x1], [0, y1])
-        line2.set_data([x1, x2], [y1, y2])
-        time_text.set_text(time_template % (-wait_s+i/fps))
-        return line1, line2, cart, time_text
-    anim = animation.FuncAnimation(fig, animate, range(0, len(x)), init_func=init, blit=True, interval=300/fps)
-    plt.tight_layout()
-    return anim
 
 class PID():
     '''simple PID controller'''
@@ -170,34 +133,36 @@ if __name__ == '__main__':
     # simulate the system
     for i in tqdm(range(1, len(t))):
         # w = np.random.normal(0, .5, 3) # generate random disturbance forces
-        # u = pid.control(-x[i-1, 0])
+        u = pid.control(-x[i-1, 0])
         # u = 0
-        u = 10
         w = [0, 0, 0]
         x[i] = sys.step(x[i-1], u, w, dt) 
 
     T = sys.kinetic_energy(x)
     V = sys.potential_energy(x)
 
-    # plot x
+
+
+
+
+
+
+    # plot 
     fig, ax = plt.subplots(3, 3, figsize=(18, 12))
     titles = ['x', 'θ1', 'θ2', 'dx', 'dθ1', 'dθ2']
     for a in range(2):
         for b in range(3):
-            ax[a, b].plot(t, x[:, 3*a+b])
+            ax[a, b].plot(t, x[:, 3*a+b], color=C)
             ax[a, b].set_title(titles[3*a+b])
             ax[a, b].grid(True)
-
-    # plot the energies
-    ax[2, 0].plot(t, T, label='T, kinetic energy')
-    ax[2, 0].plot(t, V, label='V, potential energy')
-    ax[2, 0].plot(t, T+V, '--', label='T+V')
+    ax[2, 0].plot(t, T, label='T, kinetic energy', color=C)
+    ax[2, 0].plot(t, V, label='V, potential energy', color='blue')
+    ax[2, 0].plot(t, T+V, '--', label='T+V', color='black')
+    # ax[2, 0].plot(t, T-V, '--', label='T-V', color='green')
     ax[2, 0].set_title('Energies')
     ax[2, 0].legend()
     ax[2, 0].grid(True)
     ax[2, 0].set_yscale('log')
-
-
-    a1 = animate(x, dt, fps)
-    
+    plt.tight_layout()
+    a1 = animate_cart_double(x, dt, fps, l1, l2)
     plt.show()
