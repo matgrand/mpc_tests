@@ -54,30 +54,6 @@ def step(x, u, dt):
     θ = θ + dθ*dt # integrate the velocity
     return np.array([θ, dθ]) # return the new state vector
 
-#############################1
-# MODEL PREDICTIVE CONTROL
-###############################
-
-# cost function
-ku  = 0 # control input weight
-kt  = 0 # kinetic energy weight
-kv  = 0 # potential energy weight
-kft = 1 # final kinetic energy weight
-kfv = -100 # final potential energy weight
-def cost(x, u):
-    '''Cost function'''
-    # lets minimize kinetic energy and control input and maximize potential energy
-    assert len(x) == len(u) # number of time steps
-    n = len(x) # number of time steps
-
-    t = fT(*x.T) # kinetic energy
-    tf = np.sum(t[n//4:]) # final kinetic energy
-    v = fV(*x.T) # potential energy
-    vf = np.sum(v[n//4:]) # final potential energy
-    u = u**2 # control input
-
-    return + kt*np.sum(t) + kv*np.sum(v) + ku*np.sum(u) + kft*tf + kfv*vf
-
 #simulate a run
 def simulate(x0, dx0, simT, dt, u):
     '''Simulate the pendulum'''
@@ -86,8 +62,23 @@ def simulate(x0, dx0, simT, dt, u):
     x[0] = [x0, dx0] # initial conditions
     for i in range(1, len(t)):
         x[i] = step(x[i-1], u[i], dt)
-    return x, t
+    return x, t 
 
+###############################
+# MODEL PREDICTIVE CONTROL
+###############################
+# cost function
+kt  = 20 # kinetic energy weight
+kv  = -100 # potential energy weight
+def cost(x, u):
+    '''Cost function'''
+    n = len(x) # number of time steps
+    weights = np.linspace(0, 1, n)**2 # weights for the cost function
+    t = fT(*x.T) # kinetic energy
+    v = fV(*x.T) # potential energy
+    te = np.sum(t*weights) # final kinetic energy
+    ve = np.sum(v*weights) # final potential energy
+    return kt*te + kv*ve
 
 # optimize the control input to minimize the cost function
 iterations = 1000
@@ -98,7 +89,6 @@ pert = 1e-2
 ss = np.linspace(1e-1, 1e-4, nt)
 # ss = np.logspace(1, -2, nt) # step size
 clip_input = 50
-sgd_perc = .5 # percentage of the control input to update
 
 best_J = np.inf
 best_u = np.zeros(nt)
@@ -109,9 +99,7 @@ for i in tqdm(range(iterations), ncols=50):
     if J < best_J: best_J, best_u = J, u
     # calculate the gradient
     Jgrad = np.zeros(len(u)) # initialize the gradient 
-    indices = np.random.choice(len(u), int(len(u)*sgd_perc), replace=False) # random indices to update the control input
-    # indices = np.arange(len(u))
-    for j in indices:
+    for j in range(len(u)):
         up = np.copy(u)
         up[j] += pert # perturb the control input
         xp, tp = simulate(x0, dx0, simT, dt, up) # simulate the pendulum
@@ -142,11 +130,7 @@ print(f'cost: {J:.2f}')
 # calculate the energies
 T = fT(*x.T) # kinetic energy
 V = fV(*x.T) # potential energy 
-
-
-
-
-
+################################################################################################
 
 # plot the state and energies
 fig, ax = plt.subplots(4, 1, figsize=(12,10)) #figsize=(18,12))
