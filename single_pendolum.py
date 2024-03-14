@@ -8,15 +8,17 @@ from plotting import animate_pendulum, C
 g = 9.81 # [m/s^2] gravity
 l = 1 # [m] length of the pendulum
 m = 1 # [kg] mass of the pendulum
-μ = 0.7 # [kg/s] damping coefficient
+μ = 0.3 # [kg/s] damping coefficient
 
 # Initial conditions
-x0 = np.pi/2
+x0 = np.pi # [rad] initial angle
 dx0 = 0
 # Time
-dt = 0.001
-simT = 20 # [s] simulation time
+dt = 0.01 # [s] time step
+simT = 1 # [s] simulation time
 fps = 60 # [Hz] frames per second
+
+nt = int(simT/dt) # number of time steps
 
 # calculate the dynamics using symbolic math
 t = sp.symbols('t')
@@ -52,38 +54,102 @@ def step(x, u, dt):
     θ = θ + dθ*dt # integrate the velocity
     return np.array([θ, dθ]) # return the new state vector
 
-###############################
+#############################1
 # MODEL PREDICTIVE CONTROL
 ###############################
 
 # cost function
-J = None
+ku  = 0 # control input weight
+kt  = 0 # kinetic energy weight
+kv  = 0 # potential energy weight
+kft = 1 # final kinetic energy weight
+kfv = -100 # final potential energy weight
+def cost(x, u):
+    '''Cost function'''
+    # lets minimize kinetic energy and control input and maximize potential energy
+    assert len(x) == len(u) # number of time steps
+    n = len(x) # number of time steps
+
+    t = fT(*x.T) # kinetic energy
+    tf = np.sum(t[n//4:]) # final kinetic energy
+    v = fV(*x.T) # potential energy
+    vf = np.sum(v[n//4:]) # final potential energy
+    u = u**2 # control input
+
+    return + kt*np.sum(t) + kv*np.sum(v) + ku*np.sum(u) + kft*tf + kfv*vf
+
+#simulate a run
+def simulate(x0, dx0, simT, dt, u):
+    '''Simulate the pendulum'''
+    t = np.arange(0, simT, dt)
+    x = np.zeros((len(t), 2)) # [θ, dθ] -> state vector
+    x[0] = [x0, dx0] # initial conditions
+    for i in range(1, len(t)):
+        x[i] = step(x[i-1], u[i], dt)
+    return x, t
+
+
+# optimize the control input to minimize the cost function
+iterations = 1000
+u = np.zeros(nt) # control input
+# ss = np.logspace(1, -2, nt) # step size
+pert = 1e-2
+# ss = np.ones(nt)*1e-3
+ss = np.linspace(1e-1, 1e-4, nt)
+# ss = np.logspace(1, -2, nt) # step size
+clip_input = 50
+sgd_perc = .5 # percentage of the control input to update
+
+best_J = np.inf
+best_u = np.zeros(nt)
+
+for i in tqdm(range(iterations), ncols=50):
+    x,t = simulate(x0, dx0, simT, dt, u) # simulate the pendulum
+    J = cost(x, u) # calculate the cost
+    if J < best_J: best_J, best_u = J, u
+    # calculate the gradient
+    Jgrad = np.zeros(len(u)) # initialize the gradient 
+    indices = np.random.choice(len(u), int(len(u)*sgd_perc), replace=False) # random indices to update the control input
+    # indices = np.arange(len(u))
+    for j in indices:
+        up = np.copy(u)
+        up[j] += pert # perturb the control input
+        xp, tp = simulate(x0, dx0, simT, dt, up) # simulate the pendulum
+        Jgrad[j] = (cost(xp, up) - J)/ss[j] # calculate the gradient
+    # update the control input
+    u = u - Jgrad*ss # update the control input
+    u = np.clip(u, -clip_input, clip_input) # clip the control input
+    print(f'cost: {J:.2f}', end='\r')
+
+print(f'iteration {i+1}/{iterations}, cost: {best_J:.2f}')
+print('Done!')
+u = best_u
+print(f'u = {u}')
 
 
 
 
 
+################################################################################################
 
-# numerical integration
-t = np.arange(0, simT, dt)
-x = np.zeros((len(t), 2)) # [θ, dθ] -> state vector
-u = np.zeros(len(t)) # control input
-x[0] = [x0, dx0] # initial conditions
+# Simulate the pendulum
+# u = np.zeros(int(simT/dt)) # control input
+x,t = simulate(x0, dx0, simT, dt, u) # simulate the pendulum
 
-for i in tqdm(range(1, len(t))):
-    ui = 10*np.sin(2*np.pi*1.5*t[i]) # control input
-    x[i] = step(x[i-1], ui, dt)
-    u[i] = ui 
+J = cost(x, u) # calculate the cost
+print(f'cost: {J:.2f}')
 
+# calculate the energies
 T = fT(*x.T) # kinetic energy
-V = fV(*x.T) # potential energy
+V = fV(*x.T) # potential energy 
+
 
 
 
 
 
 # plot the state and energies
-fig, ax = plt.subplots(4, 1, figsize=(18,12))
+fig, ax = plt.subplots(4, 1, figsize=(12,10)) #figsize=(18,12))
 ax[0].plot(t, x[:,0], label='θ, angle', color=C)
 ax[0].set_ylabel('Angle [rad]')
 ax[0].grid(True)
@@ -103,6 +169,8 @@ ax[3].grid(True)
 plt.tight_layout()
 
 
-animate_pendulum(x, u, dt, fps, l)
+animate_pendulum(x, u, dt, fps, l, figsize=(4,4))
+
+cost(x, u)
 
 plt.show()

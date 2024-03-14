@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-WAIT_S = 1 # wait time in seconds
+WAIT_S = 0.0 # wait time in seconds
 INTERVAL = 500 # interval in milliseconds (1000 = real time)
 C = (155/255,0,20/255) # unipd RGB
 
@@ -10,9 +10,9 @@ def animate_pendulum(x, u, dt, fps, l, figsize=(6,6)):
     # animate the system
     x = x[::int(1/fps/dt)] # display one frame every n time steps
     u = u[::int(1/fps/dt)] # display one frame every n time steps
-    x = np.concatenate([np.array([x[0]]*int(WAIT_S*fps)), x]) 
-    u = np.concatenate([np.array([u[0]]*int(WAIT_S*fps)), u])
-    maxu = np.max(np.abs(u))
+    x = np.concatenate([np.array([x[0]]*int(WAIT_S*fps)), x]) if WAIT_S > 0 else x
+    u = np.concatenate([np.array([u[0]]*int(WAIT_S*fps)), u]) if WAIT_S > 0 else u  
+    maxu = max(np.max(np.abs(u)), 1e-3)
     u = l*u/maxu # scale the control input
     #create a new figure
     fig, ax = plt.subplots(figsize=figsize)
@@ -44,9 +44,9 @@ def animate_cart_double(x, u, dt, fps, l1, l2, figsize=(6,6)):
     # animate the system
     x = x[::int(1/fps/dt)] # display one frame every n time steps
     u = u[::int(1/fps/dt)] # display one frame every n time steps
-    x = np.concatenate([np.array([x[0]]*int(WAIT_S*fps)), x]) 
-    u = np.concatenate([np.array([u[0]]*int(WAIT_S*fps)), u])
-    maxu = np.max(np.abs(u))
+    x = np.concatenate([np.array([x[0]]*int(WAIT_S*fps)), x]) if WAIT_S > 0 else x
+    u = np.concatenate([np.array([u[0]]*int(WAIT_S*fps)), u]) if WAIT_S > 0 else u
+    maxu = max(np.max(np.abs(u)), 1e-3)
     u = (l1+l2)*u/maxu # scale the control input
     #create a new figure
     fig, ax = plt.subplots(figsize=figsize)
