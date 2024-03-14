@@ -87,7 +87,7 @@ u = np.zeros(nt) # control input
 # ss = np.logspace(1, -2, nt) # step size
 pert = 1e-2
 # ss = np.ones(nt)*1e-3
-ss = np.linspace(1e-1, 1e-4, nt)
+ss = np.linspace(0.5, 0.003, nt)
 # ss = np.logspace(1, -2, nt) # step size
 clip_input = 50
 
