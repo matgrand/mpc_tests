@@ -80,6 +80,7 @@ def cost(x, u):
     ve = np.sum(v*weights) # final potential energy
     return kt*te + kv*ve
 
+# GRADIENT DESCENT
 # optimize the control input to minimize the cost function
 iterations = 1000
 u = np.zeros(nt) # control input
@@ -108,16 +109,10 @@ for i in tqdm(range(iterations), ncols=50):
     u = u - Jgrad*ss # update the control input
     u = np.clip(u, -clip_input, clip_input) # clip the control input
     print(f'cost: {J:.2f}', end='\r')
-
-print(f'iteration {i+1}/{iterations}, cost: {best_J:.2f}')
-print('Done!')
 u = best_u
-print(f'u = {u}')
+print(f'iteration {i+1}/{iterations}, cost: {best_J:.2f}')
 
-
-
-
-
+# SIMULATION 
 ################################################################################################
 
 # Simulate the pendulum
@@ -151,7 +146,6 @@ ax[3].plot(t, u, label='u, control input', color=C)
 ax[3].set_ylabel('Control input')
 ax[3].grid(True)
 plt.tight_layout()
-
 
 animate_pendulum(x, u, dt, fps, l, figsize=(4,4))
 
