@@ -4,9 +4,6 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import sympy as sp
 
-#enable latex rendering
-sp.init_printing()
-
 ###################################################################################################################
 l1 = 1.1  # First arm
 l2 = 1  # Second arm

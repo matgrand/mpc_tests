@@ -5,6 +5,8 @@ from plotting import *
 
 # single pendolum
 from single_pendolum import *
+#double pendulum
+from double_pendulum import *
 
 # Initial conditions
 x0 = np.random.rand()*0.5 + np.pi # [rad] intial angle (0 is up)
