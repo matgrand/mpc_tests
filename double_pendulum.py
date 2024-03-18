@@ -66,21 +66,25 @@ del t, θ1, θ2, u, dθ1, dθ2, x1, y1, x2, y2, T1, T2, T, V, L, LEQθ1, LEQθ2,
 
 ###################################################################################################################
 
-def expand_input(iu, simT, dt): 
+def expand_input(iu, t, ne): 
     '''
+    input is defined as a sequence of additions to the first control input
     Expand the control input to match the state vector
-    iu: input, simT: simulation time, dt: time step
+    iu: input, t: simulation time, ne: number expanded control inputs
     '''
-    liu = len(iu) # length of the compressed input
-    ou = np.zeros((int(simT/dt))) # expanded control input
-    it = np.linspace(0, simT, liu) # input time
-    ot = np.linspace(0, simT, nto) # expanded time
+    nc = len(iu) # length of the compressed input
+    ou = np.zeros((ne)) # expanded control input
+    ct = np.linspace(0, t, nc) # input time
+    et = np.linspace(0, t, ne) # expanded time
     ii = 0 # index for the compressed input
-    for i in range(nto):
-        ia, ib = it[ii], it[ii+1] # time interval for the compressed input
-        a, b = iu[ii], iu[ii+1] # control input interval
-        ou[i] = a + (ot[i] - ia)*(b - a)/(ib - ia) # linear interpolation
-        if ot[i] > it[ii+1]: ii += 1 # update the index
+    cumulated = iu[0] # cumulated control input
+    for i in range(ne):
+        dtc = ct[ii+1] - ct[ii] # time interval for the compressed input
+        dti = et[i] - ct[ii] # time interval for the expanded input
+        ou[i] = cumulated + iu[ii+1]*dti/dtc # linear interpolation
+        if et[i] > ct[ii+1]: 
+            ii += 1 # update the index
+            cumulated += iu[ii] # update the cumulated control input
     return ou
 
 def step(x, u, dt):
@@ -93,12 +97,13 @@ def step(x, u, dt):
 #simulate a run
 def simulate(x0, simT, dt, u):
     '''Simulate the pendulum'''
-    t = np.arange(0, simT, dt)
-    x = np.zeros((len(t), 4)) # [θ1, θ2, dθ1, dθ2] -> state vector
-    eu = expand_input(u, simT, dt) # expand the control input
+    n = int(simT/dt) # number of time steps
+    t = np.linspace(0, simT, n) # time vector
+    x = np.zeros((n, 4)) # [θ1, θ2, dθ1, dθ2] -> state vector
+    eu = expand_input(u, simT, n) # expand the control input
     eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
     x[0] = x0 # initial conditions
-    for i in range(1, len(t)):
+    for i in range(1, n):
         x[i] = step(x[i-1], eu[i], dt) # integrate the differential equation
     return x, t, eu
 

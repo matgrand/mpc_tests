@@ -6,7 +6,7 @@ from plotting import *
 SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
-M = SP
+M = DP
 
 if M == SP: SP, DP, CDP = True, False, False
 elif M == DP: SP, DP, CDP = False, True, False
@@ -22,12 +22,16 @@ if DP: x0 = np.array([0.1, 0.1, 0, 0]) # [rad, rad/s, rad, rad/s] # DOUBLE PENDU
 if CDP: raise NotImplementedError('Cart double pendulum not implemented')
 # Time
 dt = 0.01 # [s] time step
-simT = 1. # [s] simulation time
+simT = 1 # [s] simulation time
 
 if SP: INPUT_SIZE = int(10 * simT)  # number of control inputs
 if DP: INPUT_SIZE = int(100 * simT)  # number of control inputs
 
-ITERATIONS = 1600 #1000
+
+ITERATIONS = 500 #1000
+
+print(f'input size: {INPUT_SIZE}')
+print(f'iterations: {ITERATIONS}')
 
 ###############################
 # MODEL PREDICTIVE CONTROL
@@ -38,6 +42,7 @@ if SP:
     kv  = -100 # potential energy weight MAX
     keu = 2 # control expanded input weight MIN
     costs = [[],[],[]] # costs to plot later
+    labels = ['T', 'V', 'u']
     def cost(x, eu, append=False):
         '''Cost function'''
         n = len(x) # number of time steps
@@ -51,41 +56,34 @@ if SP:
         if append: costs[0].append(te), costs[1].append(-ve), costs[2].append(eu)
         return np.sum(te) + np.sum(ve) + np.sum(eu) # total cost
 if DP:
-    kx1 = 70 # position joint 1 weight MIN
-    kx2 = 100 # position joint 2 weight MIN
-    kdx1 = 30 # velocity joint 1 weight MIN
-    kdx2 = 50 # velocity joint 2 weight MIN
-    keu = 0 # control expanded input weight MIN
-    costs = [[],[],[],[],[]] # costs to plot later
+    kt  = 60 # kinetic energy weight MIN
+    kv  = -100 # potential energy weight MAX
+    keu = 2 # control expanded input weight MIN
+    costs = [[],[],[]] # costs to plot later
+    labels = ['T', 'V', 'u']
     def cost(x, eu, append=False):
         '''Cost function'''
         n = len(x) # number of time steps
-        x1, x2 = x[:,0]**2, x[:,1]**2
-        dx1, dx2 = x[:,2]**2, x[:,3]**2
-        weights = np.linspace(0, 1, n)**2 # weights for the cost function
-        wx1 = kx1 * x1 * weights
-        wx2 = kx2 * x2 * weights
-        wdx1 = kdx1 * dx1 * weights
-        wdx2 = kdx2 * dx2 * weights
+        weights = np.linspace(0, 1, n)**3 # weights for the cost function
+        t = kinetic_energy(x) # kinetic energy
+        v = potential_energy(x) # potential energy
+        te = kt * t * weights
+        ve = kv * v * weights 
         eu = keu * eu**2 * np.linspace(0, 1, len(eu)) # weight for the control input
         # debug, append the energies
-        if append: 
-            costs[0].append(wx1), costs[1].append(wx2)
-            costs[2].append(wdx1), costs[3].append(wdx2)
-            costs[4].append(eu)
-        return np.sum(wx1) + np.sum(wx2) + np.sum(wdx1) + np.sum(wdx2) + np.sum(eu) # total cost
-
-        
+        if append: costs[0].append(te), costs[1].append(-ve), costs[2].append(eu)
+        return np.sum(te) + np.sum(ve) + np.sum(eu) # total cost
 
 # "SOLVER"
 # optimize the control input to minimize the cost function
 u = np.zeros(INPUT_SIZE) # control input
 #perturbations for each control input, bigger changes for earlier control inputs
 if SP: pert = np.linspace(3e-3, 3e-4, INPUT_SIZE) 
-if DP: pert = np.linspace(3e-3, 3e-4, INPUT_SIZE)
+if DP: pert = np.linspace(5, 5, INPUT_SIZE)
 pd = 0.999 # perturbation decay, 1 -> no decay
 print(f'perturbation: {pd} -> {pd**ITERATIONS}')
-lr = 3e-2 # learning rate for the gradient descent
+if SP: lr = 3e-2 # learning rate for the gradient descent
+if DP: lr = 1e-7 # learning rate for the gradient descent
 # initialize the best cost and control input
 best_J = np.inf
 best_u = np.zeros_like(u)
@@ -127,11 +125,11 @@ V = potential_energy(x) # potential energy
 if SP:
     plot_single(x, t, eu, T, V, figsize=(12,10))
     a1 = animate_pendulum(x, eu, dt, l, figsize=(4,4))
-    a2 = animate_costs(np.array(costs), labels=['T', 'V', 'u'])
+    a2 = animate_costs(np.array(costs), labels=labels)
 if DP:
     plot_double(x, t, eu, T, V, figsize=(12,10))
     a1 = animate_double_pendulum(x, eu, dt, l1, l2, figsize=(4,4))
-    a2 = animate_costs(np.array(costs), labels=['x1', 'x2', 'dx1', 'dx2', 'u'])
+    a2 = animate_costs(np.array(costs), labels=labels)
 
 plt.show()
 ################################################################################################
