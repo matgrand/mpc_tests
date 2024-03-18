@@ -1,8 +1,8 @@
 
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 import sympy as sp
+from plotting import animate_double_pendulum, plot_double
+import matplotlib.pyplot as plt
 
 ###################################################################################################################
 l1 = 1.1  # First arm
@@ -13,26 +13,27 @@ g = 9.81  # gravity
 m1 = 1  # mass of the first pendulum
 m2 = 1.1  # mass of the second pendulum
 
-dt = 0.01  # time step
-SIMT = 30
-fps = 60
+INPUT_CLIP = 50  # maximum control input
 
 # use lagrangian mechanics to derive the equations of motion
 # define the symbolic variables
 t = sp.symbols('t')
-θ1, θ2 = sp.symbols('θ1 θ2', cls=sp.Function)
+θ1, θ2, u = sp.symbols('θ1 θ2 u', cls=sp.Function)
 #define as functions of time
 θ1, θ2 = θ1(t), θ2(t) # angles of the joints
-ω1, ω2 = θ1.diff(t), θ2.diff(t) # angular velocities of the joints
-α1, α2 = ω1.diff(t), ω2.diff(t) # angular accelerations of the joints
+u = u(t) # control input
+dθ1, dθ2 = θ1.diff(t), θ2.diff(t) # angular velocities of the joints
+ddθ1, ddθ2 = dθ1.diff(t), dθ2.diff(t) # angular accelerations of the joints
 
 #define position of all the masses
-x1, y1 = l1*sp.sin(θ1), -l1*sp.cos(θ1) # position of the first pendulum
-x2, y2 = x1 + l2*sp.sin(θ2), y1 - l2*sp.cos(θ2) # position of the second pendulum
+x1, y1 = l1*sp.sin(θ1), l1*sp.cos(θ1) # position of the first pendulum
+x2, y2 = x1 + l2*sp.sin(θ2), y1 + l2*sp.cos(θ2) # position of the second pendulum
+dx1, dy1 = x1.diff(t), y1.diff(t) # velocity of the first pendulum
+dx2, dy2 = x2.diff(t), y2.diff(t) # velocity of the second pendulum
 
 # define the kinetic energy of the system
-T1 = 1/2*m1*(x1.diff(t)**2 + y1.diff(t)**2) # kinetic energy of the first pendulum
-T2 = 1/2*m2*(x2.diff(t)**2 + y2.diff(t)**2) # kinetic energy of the second pendulum
+T1 = 1/2*m1*(dx1**2 + dy1**2) # kinetic energy of the first pendulum
+T2 = 1/2*m2*(dx2**2 + dy2**2) # kinetic energy of the second pendulum
 T = T1 + T2 # total kinetic energy
 
 # define the potential energy of the system
@@ -42,90 +43,89 @@ V = m1*g*y1 + m2*g*y2 # total potential energy
 L = T - V
 
 # get the lagrange equations
-# LEQθ1 = ((L.diff(ω1)).diff(t) - L.diff(θ1)).simplify()
-# LEQθ2 = ((L.diff(ω2)).diff(t) - L.diff(θ2)).simplify()
-LEQθ1 = sp.diff(L, θ1) - sp.diff(sp.diff(L, ω1), t)
-LEQθ2 = sp.diff(L, θ2) - sp.diff(sp.diff(L, ω2), t)
-
-# solve the lagrange equations for the accelerations
-sol = sp.solve([LEQθ1, LEQθ2], [α1, α2])
-sol_α1 = sol[α1].simplify()
-sol_α2 = sol[α2].simplify()
+LEQθ1 = L.diff(θ1) - (L.diff(dθ1)).diff(t) - μ1*dθ1 + u # lagrange equation for the first joint
+LEQθ2 = L.diff(θ2) - (L.diff(dθ2)).diff(t) - μ2*dθ2 # lagrange equation for the second join
 
 # lambdify the equations of motion
-model1 = sp.lambdify((θ1, θ2, ω1, ω2), sol_α1)
-model2 = sp.lambdify((θ1, θ2, ω1, ω2), sol_α2)
+sol = sp.solve([LEQθ1, LEQθ2], [ddθ1, ddθ2], simplify=False)
+ddθ1 = sol[ddθ1].simplify()
+ddθ2 = sol[ddθ2].simplify()
 
-# Integrate the differential equations  
-tv = np.arange(0, SIMT, dt) # time vector
-θ1v, θ2v, ω1v, ω2v, α1v, α2v = [np.zeros(len(tv)) for _ in range(6)] # initialize the variables
-θ1v[0], θ2v[0] = np.pi/2, np.pi/2 # initial conditions
-ω1v[0], ω2v[0] = 0, 0 # initial conditions
+f = sp.lambdify((θ1, θ2, dθ1, dθ2, u), [ddθ1, ddθ2], 'numpy')
 
-for i in range(1, len(tv)):
-    α1v[i] = model1(θ1v[i-1], θ2v[i-1], ω1v[i-1], ω2v[i-1])
-    α2v[i] = model2(θ1v[i-1], θ2v[i-1], ω1v[i-1], ω2v[i-1])
-    ω1v[i] = ω1v[i-1] + α1v[i]*dt
-    ω2v[i] = ω2v[i-1] + α2v[i]*dt
-    θ1v[i] = θ1v[i-1] + ω1v[i]*dt
-    θ2v[i] = θ2v[i-1] + ω2v[i]*dt
+# kinetic and potential energy
+fT = sp.lambdify((θ1, θ2, dθ1, dθ2), T, 'numpy')
+fV = sp.lambdify((θ1, θ2, dθ1, dθ2), V, 'numpy')
 
+def kinetic_energy(x): return fT(*x.T)
+def potential_energy(x): return fV(*x.T)
 
-# Plot the results
-fig, ax = plt.subplots(2, 1, figsize=(6, 6))
-ax[0].plot(tv, θ1v, label='θ1')
-ax[0].plot(tv, θ2v, label='θ2')
-ax[0].set_xlabel('Time [s]')
-ax[0].set_ylabel('Angle [rad]')
-ax[0].set_title('Angles')
-ax[0].legend()
-ax[0].grid()
-
-ax[1].plot(tv, ω1v, label='ω1')
-ax[1].plot(tv, ω2v, label='ω2')
-ax[1].set_xlabel('Time [s]')
-ax[1].set_ylabel('Angular velocity [rad/s]')
-ax[1].set_title('Angular velocities')
-ax[1].legend()
-ax[1].grid()
-
-# Animation
-n = int(1/fps/dt)
-tv, θ1v, θ2v, ω1v, ω2v, α1v, α2v = tv[::n], θ1v[::n], θ2v[::n], ω1v[::n], ω2v[::n], α1v[::n], α2v[::n]
-
-fig, ax = plt.subplots()
-lim = (l1+l2)*1.2
-ax.set_xlim(-lim, lim), ax.set_ylim(-lim, lim)
-ax.set_aspect('equal')
-ax.grid()
-ax.set_xlabel('x [m]')
-ax.set_ylabel('y [m]')
-ax.set_title('Pendulum')
-line1, = ax.plot([], [], 'o-', lw=2)
-line2, = ax.plot([], [], 'o-', lw=2)
-time_template = 'time = %.1fs'
-time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
-
-def init():
-    line1.set_data([], [])
-    line2.set_data([], [])
-    time_text.set_text('')
-    return line1, line2, time_text
-
-def animate(i):
-    x1, y1 = l1*np.sin(θ1v[i]), -l1*np.cos(θ1v[i])
-    x2, y2 = x1 + l2*np.sin(θ2v[i]), y1 - l2*np.cos(θ2v[i])
-    line1.set_data([0, x1], [0, y1])
-    line2.set_data([x1, x2], [y1, y2])
-    time_text.set_text(time_template % (i*1/fps))
-    return line1, line2, time_text
-
-ani = animation.FuncAnimation(fig, animate, np.arange(1, len(tv)), init_func=init,
-                                interval=1/fps*1000, blit=True)
-plt.show()
+del t, θ1, θ2, u, dθ1, dθ2, x1, y1, x2, y2, T1, T2, T, V, L, LEQθ1, LEQθ2, sol, ddθ1, ddθ2 
 
 
 
+###################################################################################################################
+
+def expand_input(iu, simT, dt): 
+    '''
+    Expand the control input to match the state vector
+    iu: input, simT: simulation time, dt: time step
+    '''
+    liu = len(iu) # length of the compressed input
+    ou = np.zeros((int(simT/dt))) # expanded control input
+    it = np.linspace(0, simT, liu) # input time
+    ot = np.linspace(0, simT, nto) # expanded time
+    ii = 0 # index for the compressed input
+    for i in range(nto):
+        ia, ib = it[ii], it[ii+1] # time interval for the compressed input
+        a, b = iu[ii], iu[ii+1] # control input interval
+        ou[i] = a + (ot[i] - ia)*(b - a)/(ib - ia) # linear interpolation
+        if ot[i] > it[ii+1]: ii += 1 # update the index
+    return ou
+
+def step(x, u, dt):
+    '''Integrate the differential equation using the Euler method'''
+    x, dx = x[:2], x[2:] # split the state vector into position and velocity
+    dx = dx + np.array(f(*x, *dx, u))*dt # compute the new velocity
+    x = x + dx*dt # compute the new position
+    return np.concatenate([x, dx]) # return the new state vector
+
+#simulate a run
+def simulate(x0, simT, dt, u):
+    '''Simulate the pendulum'''
+    t = np.arange(0, simT, dt)
+    x = np.zeros((len(t), 4)) # [θ1, θ2, dθ1, dθ2] -> state vector
+    eu = expand_input(u, simT, dt) # expand the control input
+    eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
+    x[0] = x0 # initial conditions
+    for i in range(1, len(t)):
+        x[i] = step(x[i-1], eu[i], dt) # integrate the differential equation
+    return x, t, eu
 
 
 
+if __name__  == '__main__':
+    x0 = np.array([np.pi/2, np.pi/2, 0, 0]) # initial conditions
+    simT = 10 # simulation time
+    dt = 1e-2 # time step
+    u = np.zeros(int(simT/dt)) # control input
+    # u[:int(simT/dt)//2] = 10 # control input
+    # u[int(simT/dt)//2:] = -10 # control input
+
+    # Simulate the pendulum
+    x,t,eu = simulate(x0, simT, dt, u) # simulate the pendulum
+
+    J = np.sum(kinetic_energy(x) + potential_energy(x)) # calculate the cost
+    print(f'cost: {J:.2f}')
+
+    # calculate the energies
+    T = kinetic_energy(x) # kinetic energy
+    V = potential_energy(x) # potential energy
+
+    # plot the state and energies
+    plot_double(x, t, eu, T, V, figsize=(12,10))
+
+    # animate the pendulum
+    a1 = animate_double_pendulum(x, eu, dt, l1, l2, figsize=(4,4))
+
+    plt.show()

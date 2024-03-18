@@ -41,6 +41,46 @@ def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6)):
     plt.tight_layout()
     return anim
 
+def animate_double_pendulum(x, u, dt, l1, l2, fps=60, figsize=(6,6)):
+    # animate the system
+    x = x[::int(1/fps/dt)] # display one frame every n time steps
+    u = u[::int(1/fps/dt)] # display one frame every n time steps
+    sw = int(WAIT_S*fps) # sample to wait for
+    x = np.concatenate([np.array([x[0]]*sw), x, np.array([x[-1]]*sw)]) if WAIT_S > 0 else x
+    u = np.concatenate([np.array([u[0]]*sw), u, np.array([u[-1]]*sw)]) if WAIT_S > 0 else u
+    maxu = max(np.max(np.abs(u)), 1e-3)
+    u = (l1+l2)*u/maxu # scale the control input
+    #create a new figure
+    fig, ax = plt.subplots(figsize=figsize)
+    lim = 1.1*(l1+l2)
+    ax.set_xlim(-lim, lim), ax.set_ylim(-lim, lim)
+    ax.set_aspect('equal')
+    ax.grid(True)
+    # ax.set_xlabel('x [m]'), ax.set_ylabel('y [m]')
+    line2 = ax.plot([], [], 'o-', lw=5, color='red')[0]
+    line1 = ax.plot([], [], 'o-', lw=5, color='blue')[0]
+    input = ax.plot([], [], '-', lw=3, color=C)[0]
+    time_template = 'time = %.1fs'
+    time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
+    def init():
+        line1.set_data([], [])
+        line2.set_data([], [])
+        input.set_data([], [])
+        time_text.set_text('')
+        return line1, line2, input, time_text
+    def animate(i):
+        x1, y1 = l1*np.sin(x[i,0]), l1*np.cos(x[i,0])
+        x2, y2 = x1 + l2*np.sin(x[i,1]), y1 + l2*np.cos(x[i,1])
+        line1.set_data([0, x1], [0, y1])
+        line2.set_data([x1, x2], [y1, y2])
+        input.set_data([0, u[i]], [-0.95*lim, -0.95*lim])
+        time_text.set_text(time_template % (-WAIT_S+i/fps))
+        return line1, line2, input, time_text
+    anim = animation.FuncAnimation(fig, animate, range(0, len(x)), init_func=init, blit=True, interval=INTERVAL/fps)
+    plt.tight_layout()
+    return anim
+
+
 def animate_cart_double(x, u, dt, l1, l2, fps=60, figsize=(6,6)):
     # animate the system
     x = x[::int(1/fps/dt)] # display one frame every n time steps
@@ -141,4 +181,25 @@ def plot_single(x, t, u, T, V, figsize=(12,10)):
     ax[3].plot(t, u, label='u, control input', color=C)
     ax[3].set_ylabel('Control input')
     ax[0].grid(True), ax[1].grid(True), ax[3].grid(True)
+    plt.tight_layout()
+
+def plot_double(x, t, u, T, V, figsize=(12,10)):
+    # plot the state and energies
+    fig, ax = plt.subplots(6, 1, figsize=figsize) #figsize=(18,12))
+    ax[0].plot(t, x[:,0], label='θ1, angle 1', color=C)
+    ax[0].set_ylabel('Angle [rad]')
+    ax[1].plot(t, x[:,1], label='dθ1, angular velocity 1', color=C)
+    ax[1].set_ylabel('Angular velocity [rad/s]')
+    ax[2].plot(t, x[:,2], label='θ2, angle 2', color='red')
+    ax[2].set_ylabel('Angle [rad]')
+    ax[3].plot(t, x[:,3], label='dθ2, angular velocity 2', color='red')
+    ax[3].set_ylabel('Angular velocity [rad/s]')
+    ax[4].plot(t, T, label='T, kinetic energy', color='red')
+    ax[4].plot(t, V, label='V, potential energy', color='blue')
+    ax[4].set_ylabel('Energy [J]')
+    ax[4].plot(t, T+V, '--',label='T+V, total energy', color='black')
+    ax[4].legend(), ax[4].grid(True), ax[5].grid(True)
+    ax[5].plot(t, u, label='u, control input', color=C)
+    ax[5].set_ylabel('Control input')
+    ax[0].grid(True), ax[1].grid(True), ax[2].grid(True), ax[3].grid(True)
     plt.tight_layout()

@@ -1,15 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sympy as sp
-from tqdm import tqdm
-from plotting import animate_pendulum, C
 np.random.seed(42)
 
 # Constants
 g = 9.81 # [m/s^2] gravity
 l = 1 # [m] length of the pendulum
 m = 1 # [kg] mass of the pendulum
-μ = 0.3 # [kg/s] damping coefficient
+μ = 0.8 # [kg/s] damping coefficient
 
 INPUT_CLIP = 50 # maximum control input
 
@@ -43,33 +41,44 @@ def potential_energy(x): return fV(*x.T)
 
 del t, θ, dθ, leq, T, V, L, x, y, u # delete the symbolic variables
 
-def expand_input(iu, simT, dt, nto): 
-    '''
-    Expand the control input to match the state vector
-    iu: input, simT: simulation time, nto: number of time steps in the output
-    '''
-    liu = len(iu) # length of the compressed input
-    ou = np.zeros((int(simT/dt))) # expanded control input
-    it = np.linspace(0, simT, liu) # input time
-    ot = np.linspace(0, simT, nto) # expanded time
-    ii = 0 # index for the compressed input
-    for i in range(nto):
-        ia, ib = it[ii], it[ii+1] # time interval for the compressed input
-        a, b = iu[ii], iu[ii+1] # control input interval
-        ou[i] = a + (ot[i] - ia)*(b - a)/(ib - ia) # linear interpolation
-        if ot[i] > it[ii+1]: ii += 1 # update the index
-    return ou
-
-# def expand_input(iu, simT, dt, nto): # iu: input, nto: number of time steps in the output
-#     ''' Use input as Fourier coefficients and create a control input'''
-#     liu = len(iu) # length of the compressed input
-#     MAX_FREQ = 100 # maximum frequency [Hz]
-#     ou = np.zeros((nt)) # expanded control input
-#     freqs = np.linspace(0, MAX_FREQ, liu) # frequencies
-#     ot = np.linspace(0, simT, nto) # expanded time
-#     for i in range(liu):
-#         ou += iu[i]*np.sin(2*np.pi*freqs[i]*ot)
+# def expand_input(iu, t, ne): 
+#     '''
+#     input iu is an approxximation of the control input
+#     Expand the control input to match the state vector
+#     iu: compressed input, t: simulation time, ne: number expanded control inputs
+#     '''
+#     nc = len(iu) # number of compressed control inputs
+#     ou = np.zeros((ne)) # expanded control input
+#     ct = np.linspace(0, t, nc) # compressed time
+#     et = np.linspace(0, t, ne) # expanded time
+#     ii = 0 # index for the compressed input
+#     for i in range(ne):
+#         ia, ib = ct[ii], ct[ii+1] # time interval for the compressed input
+#         a, b = iu[ii], iu[ii+1] # control input interval
+#         ou[i] = a + (et[i] - ia)*(b - a)/(ib - ia) # linear interpolation
+#         if et[i] > ct[ii+1]: ii += 1 # update the index
 #     return ou
+
+def expand_input(iu, t, ne): 
+    '''
+    input is defined as a sequence of additions to the first control input
+    Expand the control input to match the state vector
+    iu: input, t: simulation time, ne: number expanded control inputs
+    '''
+    nc = len(iu) # length of the compressed input
+    ou = np.zeros((ne)) # expanded control input
+    ct = np.linspace(0, t, nc) # input time
+    et = np.linspace(0, t, ne) # expanded time
+    ii = 0 # index for the compressed input
+    cumulated = iu[0] # cumulated control input
+    for i in range(ne):
+        dtc = ct[ii+1] - ct[ii] # time interval for the compressed input
+        dti = et[i] - ct[ii] # time interval for the expanded input
+        ou[i] = cumulated + iu[ii+1]*dti/dtc # linear interpolation
+        if et[i] > ct[ii+1]: 
+            ii += 1 # update the index
+            cumulated += iu[ii] # update the cumulated control input
+    return ou
 
 def step(x, u, dt): 
     '''Integrate the differential equation using the Euler method'''
@@ -79,13 +88,14 @@ def step(x, u, dt):
     return np.array([θ, dθ]) # return the new state vector
 
 #simulate a run
-def simulate(x0, dx0, simT, dt, u):
+def simulate(x0, simT, dt, u):
     '''Simulate the pendulum'''
-    t = np.arange(0, simT, dt)
-    x = np.zeros((len(t), 2)) # [θ, dθ] -> state vector
-    eu = expand_input(u, simT, dt, len(t))
+    n = int(simT/dt) # number of time steps
+    t = np.linspace(0, simT, n) # time vector
+    x = np.zeros((n, 2)) # [θ, dθ] -> state vector
+    eu = expand_input(u, simT, n) # expand the control input
     eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
-    x[0] = [x0, dx0] # initial conditions
-    for i in range(1, len(t)):
+    x[0] = x0 # initial conditions
+    for i in range(1, n):
         x[i] = step(x[i-1], eu[i], dt)
     return x, t, eu
