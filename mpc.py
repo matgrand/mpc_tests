@@ -38,11 +38,13 @@ def cost(x, eu, append=False):
 
 # "SOLVER"
 # optimize the control input to minimize the cost function
-ITERATIONS = 300#1000
+ITERATIONS = 1000#1000
 u = np.zeros(INPUT_SIZE) # control input
 #perturbations for each control input, bigger changes for earlier control inputs
-pert = np.linspace(5e-3, 1e-5, INPUT_SIZE) 
-lr = 1e-3 # learning rate for the gradient descent
+pert = np.linspace(3e-2, 3e-4, INPUT_SIZE) 
+pd = 0.999 # perturbation decay
+print(f'perturbation: {pd} -> {pd**ITERATIONS}')
+lr = 1e-1 # learning rate for the gradient descent
 # initialize the best cost and control input
 best_J = np.inf
 best_u = np.zeros_like(u)
@@ -53,13 +55,13 @@ for i in tqdm(range(ITERATIONS), ncols=50):
     J = cost(x, eu, append=True) # calculate the cost
     if J < best_J: best_J, best_u = J, u
     # calculate the gradient
-    Jgrad = np.zeros(len(u)) # initialize the gradient 
-    for j in range(len(u)):
+    Jgrad = np.zeros(INPUT_SIZE) # initialize the gradient 
+    for j in range(INPUT_SIZE):
         up = np.copy(u)
-        up[j] += pert[j] # perturb the control input
+        up[j] += pert[j] * pd**i # perturb the control input
         xp, tp, eup = simulate(x0, dx0, simT, dt, up) # simulate the pendulum
         Jgrad[j] = (cost(xp, eup) - J) # calculate the gradient
-    u -= Jgrad # update the control input
+    u -= Jgrad*lr # update the control input
     if i%7 == 0: print(f'cost: {J:.2f}', end='\r')
 u = best_u
 print(f'iteration {i+1}/{ITERATIONS}, cost: {best_J:.2f}')

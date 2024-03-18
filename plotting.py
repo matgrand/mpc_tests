@@ -81,7 +81,7 @@ def animate_cart_double(x, u, dt, l1, l2, fps=60, figsize=(6,6)):
     plt.tight_layout()
     return anim
 
-def animate_costs(costs, labels, fps=60, anim_time=5, figsize=(8,6), logscale=True):
+def animate_costs(costs, labels, fps=60, anim_time=5, figsize=(8,6), logscale=False):
     ''' costs should be a vector of size (ncosts, iterations, time)'''
     assert costs.ndim == 3, f'costs.ndim: {costs.ndim}'
     skip = max(costs.shape[1]//int(fps*anim_time), 1)
