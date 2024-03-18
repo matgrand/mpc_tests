@@ -81,28 +81,31 @@ def animate_cart_double(x, u, dt, fps, l1, l2, figsize=(6,6)):
     plt.tight_layout()
     return anim
 
-def animate_costs(costs, fps=60, anim_time=5, figsize=(8,6)):
+def animate_costs(costs, labels, fps=60, anim_time=5, figsize=(8,6), logscale=True):
     ''' costs should be a vector of size (ncosts, iterations, time)'''
     assert costs.ndim == 3, f'costs.ndim: {costs.ndim}'
     skip = max(costs.shape[1]//int(fps*anim_time), 1)
     costs = costs[:, ::skip, :]
     ncosts, iters, nt = costs.shape
+    assert len(labels) == ncosts, f'len(labels): {len(labels)}, ncosts: {ncosts}'
 
     t = np.linspace(0, 1, nt)
     fig, ax = plt.subplots(figsize=figsize)
-    ax.set_ylim(np.min(costs), np.max(costs))
+    # ax.set_ylim(np.min(costs), np.max(costs))
     ax.set_xlim(0, 1)
     ax.grid(True)
 
     colors = plt.cm.viridis(np.linspace(0, 1, ncosts))
-    lines = [ax.plot([], [], '-', lw=2, color=colors[i])[0] for i in range(ncosts)]
+    lines = [ax.plot([], [], '-', lw=2, color=colors[i], label=labels[i])[0] for i in range(ncosts)]
+    if logscale: ax.set_yscale('log')
+    ax.legend()
 
     #initialize figure by plotting the first costs and the last costs
     for i in range(ncosts):
         ax.plot(t, costs[i, 0, :], '--', lw=1, color=colors[i])
         ax.plot(t, costs[i, -1, :], '--', lw=1, color=colors[i])
 
-    iter_template = 'iteration = %d'
+    iter_template = 'iteration = %d /' + str(iters*skip)
     time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
     def init():
         for line in lines: line.set_data([], [])
@@ -113,7 +116,7 @@ def animate_costs(costs, fps=60, anim_time=5, figsize=(8,6)):
             for k in range(0, i+1, 5):
                 line.set_data(t, costs[j, k, :])
             # line.set_data(t, costs[j, i, :])
-        time_text.set_text(iter_template % i)
+        time_text.set_text(iter_template % (i*skip))
         return lines + [time_text]
     
     anim = animation.FuncAnimation(fig, animate, range(iters), init_func=init, blit=True, interval=INTERVAL/fps)

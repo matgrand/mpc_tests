@@ -14,7 +14,7 @@ dt = 0.01 # [s] time step
 simT = 1 # [s] simulation time
 fps = 60 # [Hz] frames per second
 
-INPUT_SIZE = int(8 * simT)  # number of control inputs
+INPUT_SIZE = int(16 * simT)  # number of control inputs
 
 ###############################
 # MODEL PREDICTIVE CONTROL
@@ -23,9 +23,7 @@ INPUT_SIZE = int(8 * simT)  # number of control inputs
 kt  = 60 # kinetic energy weight
 kv  = -100 # potential energy weight
 keu = 3 # control expanded input weight
-costs = [[],[],[]]
-
-
+costs = [[],[],[]] # costs to plot later
 def cost(x, eu, append=False):
     '''Cost function'''
     n = len(x) # number of time steps
@@ -34,22 +32,18 @@ def cost(x, eu, append=False):
     v = potential_energy(x) # potential energy
     te = kt * t * weights
     ve = kv * v * weights 
-
     eu = keu * eu**2 * np.linspace(0, 1, len(eu)) # weight for the control input
-
     # debug, append the energies
-    if append: costs[0].append(te), costs[1].append(ve), costs[2].append(eu)
-
+    if append: costs[0].append(te), costs[1].append(-ve), costs[2].append(eu)
     return np.sum(te) + np.sum(ve) + np.sum(eu) # total cost
 
 # GRADIENT DESCENT
 # optimize the control input to minimize the cost function
-ITERATIONS = 1000#1000
+ITERATIONS = 300#1000
 # u = np.zeros(INPUT_SIZE) # control input
 u = np.random.rand(INPUT_SIZE)*INPUT_CLIP - INPUT_CLIP/2 # control input
 pert = 1e-2 # perturbation of the control input for the gradient, will be updated
-ss = np.linspace(0.1, 0.003, len(u)) # step size for the gradient
-# ss = np.ones(len(u))*3e-3 # step size for the gradient
+ss = np.linspace(0.3, 0.005, len(u)) # step size for the gradient
 
 u_time_weight = 5*np.linspace(1, 0, INPUT_SIZE)#**2 # weight for the control input
 
@@ -93,6 +87,6 @@ V = potential_energy(x) # potential energy
 plot_single(x, t, eu, T, V, figsize=(12,10))
 #animations
 a1 = animate_pendulum(x, eu, dt, fps, l, figsize=(4,4))
-a2 = animate_costs(np.array(costs), figsize=(8,6))
+a2 = animate_costs(np.array(costs), labels=['T', 'V', 'u'])
 plt.show()
 ################################################################################################
