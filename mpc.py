@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from plotting import *
 
-# single pendolum
-from single_pendolum import *
+# single pendulum
+from single_pendulum import *
 #double pendulum
 from double_pendulum import *
 
