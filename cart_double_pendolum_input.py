@@ -17,7 +17,6 @@ m2 = 1  # mass of the second pendulum
 
 dt = 0.001  # time step
 SIMT = 10 # simulation time
-fps = 60 # frames per second
 
 class PhysicalSystem():
     def __init__(self, l1, l2, g, μ0, μ1, μ2, m0, m1, m2):
@@ -161,5 +160,5 @@ if __name__ == '__main__':
     ax[2, 1].grid(True)
     plt.tight_layout()
 
-    a1 = animate_cart_double(x, u, dt, fps, l1, l2)
+    a1 = animate_cart_double(x, u, dt, l1, l2)
     plt.show()

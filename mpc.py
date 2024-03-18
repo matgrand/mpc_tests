@@ -7,14 +7,13 @@ from plotting import *
 from single_pendolum import *
 
 # Initial conditions
-x0 = np.pi + np.random.rand()*0.1 # [rad] intial angle (0 is up)
+x0 = np.random.rand()*0.5 + np.pi # [rad] intial angle (0 is up)
 dx0 = 0
 # Time
 dt = 0.01 # [s] time step
 simT = 1 # [s] simulation time
-fps = 60 # [Hz] frames per second
 
-INPUT_SIZE = int(16 * simT)  # number of control inputs
+INPUT_SIZE = int(20 * simT)  # number of control inputs
 
 ###############################
 # MODEL PREDICTIVE CONTROL
@@ -22,7 +21,7 @@ INPUT_SIZE = int(16 * simT)  # number of control inputs
 # cost function
 kt  = 60 # kinetic energy weight
 kv  = -100 # potential energy weight
-keu = 3 # control expanded input weight
+keu = .5 # control expanded input weight
 costs = [[],[],[]] # costs to plot later
 def cost(x, eu, append=False):
     '''Cost function'''
@@ -37,19 +36,19 @@ def cost(x, eu, append=False):
     if append: costs[0].append(te), costs[1].append(-ve), costs[2].append(eu)
     return np.sum(te) + np.sum(ve) + np.sum(eu) # total cost
 
-# GRADIENT DESCENT
+# "SOLVER"
 # optimize the control input to minimize the cost function
-ITERATIONS = 300#1000
-# u = np.zeros(INPUT_SIZE) # control input
-u = np.random.rand(INPUT_SIZE)*INPUT_CLIP - INPUT_CLIP/2 # control input
+ITERATIONS = 1000#1000
+u = np.zeros(INPUT_SIZE) # control input
+# u = np.random.rand(INPUT_SIZE)*INPUT_CLIP - INPUT_CLIP/2 # control input
 pert = 1e-2 # perturbation of the control input for the gradient, will be updated
 ss = np.linspace(0.3, 0.005, len(u)) # step size for the gradient
-
+# perturb more the early control inputs, less the later ones
 u_time_weight = 5*np.linspace(1, 0, INPUT_SIZE)#**2 # weight for the control input
-
+# initialize the best cost and control input
 best_J = np.inf
 best_u = np.zeros_like(u)
-
+# gradient descent
 for i in tqdm(range(ITERATIONS), ncols=50):
     assert u.shape == (INPUT_SIZE,), f'u.shape: {u.shape}, INPUT_SIZE: {INPUT_SIZE}'
     x,t,eu = simulate(x0, dx0, simT, dt, u) # simulate the pendulum
@@ -59,7 +58,7 @@ for i in tqdm(range(ITERATIONS), ncols=50):
     Jgrad = np.zeros(len(u)) # initialize the gradient 
     for j in range(len(u)):
         up = np.copy(u)
-        up[j] += pert*u_time_weight[j] # perturb the control input
+        up[j] += pert*u_time_weight[j] # perturb the control input,
         xp, tp, eup = simulate(x0, dx0, simT, dt, up) # simulate the pendulum
         Jgrad[j] = (cost(xp, eup) - J)/ss[j] # calculate the gradient
     # update the control input
@@ -86,7 +85,7 @@ V = potential_energy(x) # potential energy
 # plot the state and energies
 plot_single(x, t, eu, T, V, figsize=(12,10))
 #animations
-a1 = animate_pendulum(x, eu, dt, fps, l, figsize=(4,4))
+a1 = animate_pendulum(x, eu, dt, l, figsize=(4,4))
 a2 = animate_costs(np.array(costs), labels=['T', 'V', 'u'])
 plt.show()
 ################################################################################################

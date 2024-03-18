@@ -6,7 +6,7 @@ INTERVAL = 500 # interval in milliseconds (1000 = real time)
 C = (155/255,0,20/255) # unipd RGB
 
 
-def animate_pendulum(x, u, dt, fps, l, figsize=(6,6)):
+def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6)):
     # animate the system
     x = x[::int(1/fps/dt)] # display one frame every n time steps
     u = u[::int(1/fps/dt)] # display one frame every n time steps
@@ -41,7 +41,7 @@ def animate_pendulum(x, u, dt, fps, l, figsize=(6,6)):
     plt.tight_layout()
     return anim
 
-def animate_cart_double(x, u, dt, fps, l1, l2, figsize=(6,6)):
+def animate_cart_double(x, u, dt, l1, l2, fps=60, figsize=(6,6)):
     # animate the system
     x = x[::int(1/fps/dt)] # display one frame every n time steps
     u = u[::int(1/fps/dt)] # display one frame every n time steps
@@ -97,7 +97,8 @@ def animate_costs(costs, labels, fps=60, anim_time=5, figsize=(8,6), logscale=Tr
 
     colors = plt.cm.viridis(np.linspace(0, 1, ncosts))
     lines = [ax.plot([], [], '-', lw=2, color=colors[i], label=labels[i])[0] for i in range(ncosts)]
-    if logscale: ax.set_yscale('log')
+    if logscale: ax.set_yscale('log'), ax.set_ylim(1e-3, np.max(costs))
+    else: ax.set_ylim(0, np.max(costs)*1/5)
     ax.legend()
 
     #initialize figure by plotting the first costs and the last costs
