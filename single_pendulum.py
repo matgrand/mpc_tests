@@ -1,7 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import sympy as sp
-np.random.seed(42)
+from inputs import addittive_resample as expand_input
 
 # Constants
 g = 9.81 # [m/s^2] gravity
@@ -41,45 +40,6 @@ def potential_energy(x): return fV(*x.T)
 
 del t, θ, dθ, leq, T, V, L, x, y, u # delete the symbolic variables
 
-# def expand_input(iu, t, ne): 
-#     '''
-#     input iu is an approxximation of the control input
-#     Expand the control input to match the state vector
-#     iu: compressed input, t: simulation time, ne: number expanded control inputs
-#     '''
-#     nc = len(iu) # number of compressed control inputs
-#     ou = np.zeros((ne)) # expanded control input
-#     ct = np.linspace(0, t, nc) # compressed time
-#     et = np.linspace(0, t, ne) # expanded time
-#     ii = 0 # index for the compressed input
-#     for i in range(ne):
-#         ia, ib = ct[ii], ct[ii+1] # time interval for the compressed input
-#         a, b = iu[ii], iu[ii+1] # control input interval
-#         ou[i] = a + (et[i] - ia)*(b - a)/(ib - ia) # linear interpolation
-#         if et[i] > ct[ii+1]: ii += 1 # update the index
-#     return ou
-
-def expand_input(iu, t, ne): 
-    '''
-    input is defined as a sequence of additions to the first control input
-    Expand the control input to match the state vector
-    iu: input, t: simulation time, ne: number expanded control inputs
-    '''
-    nc = len(iu) # length of the compressed input
-    ou = np.zeros((ne)) # expanded control input
-    ct = np.linspace(0, t, nc) # input time
-    et = np.linspace(0, t, ne) # expanded time
-    ii = 0 # index for the compressed input
-    cumulated = iu[0] # cumulated control input
-    for i in range(ne):
-        dtc = ct[ii+1] - ct[ii] # time interval for the compressed input
-        dti = et[i] - ct[ii] # time interval for the expanded input
-        ou[i] = cumulated + iu[ii+1]*dti/dtc # linear interpolation
-        if et[i] > ct[ii+1]: 
-            ii += 1 # update the index
-            cumulated += iu[ii] # update the cumulated control input
-    return ou
-
 def step(x, u, dt): 
     '''Integrate the differential equation using the Euler method'''
     θ, dθ = x # split the state vector
@@ -99,3 +59,4 @@ def simulate(x0, simT, dt, u):
     for i in range(1, n):
         x[i] = step(x[i-1], eu[i], dt)
     return x, t, eu
+

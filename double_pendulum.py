@@ -3,6 +3,7 @@ import numpy as np
 import sympy as sp
 from plotting import animate_double_pendulum, plot_double
 import matplotlib.pyplot as plt
+from inputs import addittive_resample as expand_input
 
 ###################################################################################################################
 l1 = 1.1  # First arm
@@ -65,28 +66,6 @@ del t, θ1, θ2, u, dθ1, dθ2, x1, y1, x2, y2, T1, T2, T, V, L, LEQθ1, LEQθ2,
 
 
 ###################################################################################################################
-
-def expand_input(iu, t, ne): 
-    '''
-    input is defined as a sequence of additions to the first control input
-    Expand the control input to match the state vector
-    iu: input, t: simulation time, ne: number expanded control inputs
-    '''
-    nc = len(iu) # length of the compressed input
-    ou = np.zeros((ne)) # expanded control input
-    ct = np.linspace(0, t, nc) # input time
-    et = np.linspace(0, t, ne) # expanded time
-    ii = 0 # index for the compressed input
-    cumulated = iu[0] # cumulated control input
-    for i in range(ne):
-        dtc = ct[ii+1] - ct[ii] # time interval for the compressed input
-        dti = et[i] - ct[ii] # time interval for the expanded input
-        ou[i] = cumulated + iu[ii+1]*dti/dtc # linear interpolation
-        if et[i] > ct[ii+1]: 
-            ii += 1 # update the index
-            cumulated += iu[ii] # update the cumulated control input
-    return ou
-
 def step(x, u, dt):
     '''Integrate the differential equation using the Euler method'''
     x, dx = x[:2], x[2:] # split the state vector into position and velocity

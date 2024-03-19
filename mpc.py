@@ -6,7 +6,7 @@ from plotting import *
 SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
-M = DP
+M = SP
 
 if M == SP: SP, DP, CDP = True, False, False
 elif M == DP: SP, DP, CDP = False, True, False
@@ -28,7 +28,7 @@ if SP: INPUT_SIZE = int(10 * simT)  # number of control inputs
 if DP: INPUT_SIZE = int(100 * simT)  # number of control inputs
 
 
-ITERATIONS = 500 #1000
+ITERATIONS = 1000 #1000
 
 print(f'input size: {INPUT_SIZE}')
 print(f'iterations: {ITERATIONS}')
@@ -54,7 +54,8 @@ if SP:
         eu = keu * eu**2 * np.linspace(0, 1, len(eu)) # weight for the control input
         # debug, append the energies
         if append: costs[0].append(te), costs[1].append(-ve), costs[2].append(eu)
-        return np.sum(te) + np.sum(ve) + np.sum(eu) # total cost
+        final_cost = (np.sum(te) + np.sum(ve) + np.sum(eu)) / n # total cost
+        return final_cost
 if DP:
     kt  = 60 # kinetic energy weight MIN
     kv  = -100 # potential energy weight MAX
@@ -72,15 +73,15 @@ if DP:
         eu = keu * eu**2 * np.linspace(0, 1, len(eu)) # weight for the control input
         # debug, append the energies
         if append: costs[0].append(te), costs[1].append(-ve), costs[2].append(eu)
-        return np.sum(te) + np.sum(ve) + np.sum(eu) # total cost
+        return (np.sum(te) + np.sum(ve) + np.sum(eu)) / n # total cost
 
 # "SOLVER"
 # optimize the control input to minimize the cost function
 u = np.zeros(INPUT_SIZE) # control input
 #perturbations for each control input, bigger changes for earlier control inputs
-if SP: pert = np.linspace(3e-3, 3e-4, INPUT_SIZE) 
+if SP: pert = np.linspace(3e-1, 3e-2, INPUT_SIZE) 
 if DP: pert = np.linspace(5, 5, INPUT_SIZE)
-pd = 0.999 # perturbation decay, 1 -> no decay
+pd = 1 #0.999 # perturbation decay, 1 -> no decay
 print(f'perturbation: {pd} -> {pd**ITERATIONS}')
 if SP: lr = 3e-2 # learning rate for the gradient descent
 if DP: lr = 1e-7 # learning rate for the gradient descent
@@ -123,13 +124,13 @@ V = potential_energy(x) # potential energy
 
 # plot the state and energies
 if SP:
-    plot_single(x, t, eu, T, V, figsize=(12,10))
+    plot_single(x, t, eu, T, V, figsize=(10,8))
     a1 = animate_pendulum(x, eu, dt, l, figsize=(4,4))
-    a2 = animate_costs(np.array(costs), labels=labels)
+    a2 = animate_costs(np.array(costs), labels=labels, figsize=(6,4), logscale=True)
 if DP:
-    plot_double(x, t, eu, T, V, figsize=(12,10))
+    plot_double(x, t, eu, T, V, figsize=(10,8))
     a1 = animate_double_pendulum(x, eu, dt, l1, l2, figsize=(4,4))
-    a2 = animate_costs(np.array(costs), labels=labels)
+    a2 = animate_costs(np.array(costs), labels=labels, figsize=(6,4))
 
 plt.show()
 ################################################################################################
