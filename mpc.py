@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from plotting import *
+from collections import deque
 
 SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
@@ -17,15 +18,15 @@ elif DP: from double_pendulum import *
 elif CDP: from cart_double_pendulum import *
 
 #initial state: [angle, angular velocity]
-if SP: x0 = np.array([np.random.rand()*0.2 + np.pi
+if SP: x0 = np.array([0.2 + np.pi
                       , 0]) # [rad, rad/s] # SINGLE PENDULUM
 if DP: x0 = np.array([0.1, 0.1, 0, 0]) # [rad, rad/s, rad, rad/s] # DOUBLE PENDULUM
 if CDP: raise NotImplementedError('Cart double pendulum not implemented')
 # Time
 dt = 0.01 # [s] time step
-simT = 1 # [s] simulation time
+simT = 2.8 # [s] simulation time
 
-if SP: INPUT_SIZE = int(20 * simT)  # number of control inputs
+if SP: INPUT_SIZE = int(20)  # number of control inputs
 if DP: INPUT_SIZE = int(100 * simT)  # number of control inputs
 
 
@@ -45,7 +46,7 @@ if SP:
     kv  = -100 #-100 # potential energy weight MAX
     kft = 0 # final kinetic energy weight MIN
     kfv = 0 # final potential energy weight MAX
-    keu = 2 #2 # control expanded input weight MIN
+    keu = 0 #2 # control expanded input weight MIN
     costs = [[],[],[]] # costs to plot later
     labels = ['T', 'V', 'u']
     def cost(x, eu, append=False):
@@ -58,7 +59,7 @@ if SP:
         ft, fv = kft * t[-1] * n, kfv * v[-1] * n # final energies
         te = kt * t * weights
         ve = kv * v * weights 
-        eu = keu * eu**2 * np.linspace(0, 1, len(eu))**2 # weight for the control input
+        eu = keu * eu**2 * np.linspace(0, 1, len(eu))#**2 # weight for the control input
         # debug, append the energies
         if append: costs[0].append(te), costs[1].append(-ve), costs[2].append(eu)
         final_cost = np.sum(te) + np.sum(ve) + np.sum(eu) + ft + fv 
@@ -86,11 +87,11 @@ if DP:
 # optimize the control input to minimize the cost function
 u = np.zeros(INPUT_SIZE) # control input
 #perturbations for each control input, bigger changes for earlier control inputs
-if SP: pert = np.linspace(.1, .1, INPUT_SIZE) 
-if DP: pert = np.linspace(5, 5, INPUT_SIZE)
+if SP: pert = .5
+if DP: pert = 5
 pd = 1 #0.999 # perturbation decay, 1 -> no decay
 print(f'perturbation: {pd} -> {pd**ITERATIONS}')
-if SP: lr = 1e-1 # learning rate for the gradient descent
+if SP: lr = .5 # learning rate for the gradient descent
 if DP: lr = 1e-7 # learning rate for the gradient descent
 
 nt = int(simT/dt) # number of time steps
@@ -99,27 +100,52 @@ xs = np.zeros((ITERATIONS, nt, len(x0))) # state vectors
 us, Ts, Vs = [np.zeros((ITERATIONS, nt)) for _ in range(3)] # control inputs, kinetic and potential energies
 
 # initialize the best cost and control input
-best_J = np.inf
+best_J = np.inf 
 best_u = np.zeros_like(u)
-# gradient descent
-for i in tqdm(range(ITERATIONS), ncols=50):
-    assert u.shape == (INPUT_SIZE,), f'u.shape: {u.shape}, INPUT_SIZE: {INPUT_SIZE}'
-    x,t,eu = simulate(x0, simT, dt, u, CLIP) # simulate the pendulum
 
-    #assign values to xs, us, Ts, Vs
-    xs[i], us[i], Ts[i], Vs[i] = x, eu, kinetic_energy(x), potential_energy(x)
-
-    J = cost(x, eu, append=True) # calculate the cost
-    if J < best_J: best_J, best_u = J, u
-    # calculate the gradient
-    Jgrad = np.zeros(INPUT_SIZE) # initialize the gradient 
+def grad(u, c):
+    '''Calculate the gradient'''
+    d = np.zeros(INPUT_SIZE) # initialize the gradient 
     for j in range(INPUT_SIZE):
         up = np.copy(u)
-        up[j] += pert[j] * pd**i # perturb the control input
-        xp, tp, eup = simulate(x0, simT, dt, up, CLIP) # simulate the pendulum
-        Jgrad[j] = (cost(xp, eup) - J) # calculate the gradient
-    u -= Jgrad*lr # update the control input
-    if i%7 == 0: print(f'cost: {J:.2f}', end='\r')
+        up[j] += pert * pd**i # perturb the control input
+        xp, _, eup = simulate(x0, simT, dt, up, CLIP) # simulate the pendulum
+        d[j] = (cost(xp, eup) - c) # calculate the gradient
+    return d
+
+# GRADIENT DESCENT
+
+# first iteration
+x,t,eu = simulate(x0, simT, dt, u, CLIP) # simulate the pendulum
+xs[0], us[0], Ts[0], Vs[0] = x, eu, kinetic_energy(x), potential_energy(x)
+J = cost(x, eu, append=True) # calculate the cost
+prev_J = J
+
+for i in tqdm(range(1,ITERATIONS), ncols=60):
+# for i in range(1,ITERATIONS):
+
+    Jgrad = grad(u, J) # calculate the gradient
+    new_u = u - Jgrad*lr # update the control input
+
+    # simulate the pendulum
+    x,t,eu = simulate(x0, simT, dt, new_u, CLIP) # simulate the pendulum
+
+    xs[i], us[i], Ts[i], Vs[i] = x, eu, kinetic_energy(x), potential_energy(x) # save the state and control input
+    
+    new_J = cost(x, eu, append=True) # calculate the cost
+
+    if J < best_J: best_J, best_u = new_J, new_u # update the best cost and control input
+
+    if new_J < J: # decreasing cost
+        u, J = new_u, new_J # update the control input and cost 
+        lr *= 1.5 # increase the learning rate
+        pert *= 1.5 # increase the perturbation
+    else: # increasing cost
+        lr *= 0.5 # decrease the learning rate
+        pert *= 0.5# decrease the perturbation
+        if lr < 1e-10: print(f'learning rate too small, breaking...'); break
+
+    if i%1 == 0: print(f'cost: {J:.2f}, best: {best_J:.2f}, lr: {lr:.1e}, pert: {pert:.1e}', end='\r')
 u = best_u
 print(f'iteration {i+1}/{ITERATIONS}, cost: {best_J:.2f}')
 
