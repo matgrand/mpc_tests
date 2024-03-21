@@ -6,7 +6,7 @@ INTERVAL = 500 # interval in milliseconds (1000 = real time)
 C = (155/255,0,20/255) # unipd RGB
 
 
-def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6)):
+def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6), title='Pendulum'):
     # animate the system
     skip = max(int(1/fps/dt), 1)
     x, u = x[::skip], u[::skip]
@@ -21,6 +21,7 @@ def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6)):
     ax.set_xlim(-lim, lim), ax.set_ylim(-lim, lim)
     ax.set_aspect('equal')
     ax.grid(True)
+    ax.set_title(title)
     # ax.set_xlabel('x [m]'), ax.set_ylabel('y [m]')
     line = ax.plot([], [], 'o-', lw=2, color='blue')[0]
     input = ax.plot([], [], '-', lw=3, color=C)[0]
@@ -164,6 +165,44 @@ def animate_costs(costs, labels, fps=60, anim_time=5, figsize=(8,6), logscale=Fa
     plt.tight_layout()
     return anim
     
+def general_multiplot_anim(x, t=None, labels=None, fps=60, anim_time=5, figsize=(8,6)):
+    assert x.ndim == 3, f'x.ndim: {x.ndim}'
+    skip = max(x.shape[1]//int(fps*anim_time), 1)
+    x = x[:, ::skip, :]
+    n, iters, nt = x.shape # iterations, number of plots, time
+    if t is None: t = np.linspace(0, 1, nt)
+    if labels is None: labels = [f'plot {i}' for i in range(n)]
+
+    fig, ax = plt.subplots(n, 1, figsize=figsize)
+    if n == 1: ax = [ax]
+    ax[0].grid(True)
+    colors = plt.cm.viridis(np.linspace(0, 1, n))
+    lines = [ax[i].plot([], [], '-', lw=2, color=colors[i], label=labels[i])[0] for i in range(n)]
+
+    for i in range(n):
+        ax[i].set_xlim(0, 1)
+        ax[i].set_ylim(np.min(x), np.max(x))
+        ax[i].grid(True)
+        ax[i].legend()
+        ax[i].set_ylabel(labels[i])
+        if i == n-1: ax[i].set_xlabel('time [s]')
+    iter_template = 'iteration = %d /' + str(iters*skip)
+    time_text = ax[0].text(0.05, 0.9, '', transform=ax[0].transAxes)
+    def init():
+        for line in lines: line.set_data([], [])
+        time_text.set_text('')
+        return lines + [time_text]
+    def animate(i):
+        for j, line in enumerate(lines):
+            line.set_data(t, x[i, j, :])
+        time_text.set_text(iter_template % (i*skip))
+        return lines + [time_text]
+    
+    anim = animation.FuncAnimation(fig, animate, range(iters), init_func=init, blit=True, interval=INTERVAL/fps)
+    plt.tight_layout()
+    return anim
+
+
 def plot_single(x, t, u, T, V, figsize=(12,10)):
     # plot the state and energies
     fig, ax = plt.subplots(4, 1, figsize=figsize) #figsize=(18,12))

@@ -42,7 +42,7 @@ def addittive_resample(iu, t, ne):
         ou[i] = cumulated + iu[ii+1]*dti/dtc # linear interpolation
     return ou
 
-def frequency_resample(iu, t, ne, max_freq=15): 
+def frequency_resample(iu, t, ne, max_freq=8): 
     '''
     input is defined as a sequence of additions to the first control input
     Expand the control input to match the state vector
@@ -52,7 +52,6 @@ def frequency_resample(iu, t, ne, max_freq=15):
     et = np.linspace(0, t, ne) # expanded time
     # freqs = np.linspace(0, max_freq, nc) # frequencies
     freqs = -1 + np.logspace(0, np.log10(max_freq), nc) # frequencies
-    # frequency resample
     return np.sum([iu[i]*np.sin(2*np.pi*freqs[i]*et) for i in range(nc)], axis=0)
 
 

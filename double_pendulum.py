@@ -3,7 +3,8 @@ import numpy as np
 import sympy as sp
 from plotting import animate_double_pendulum, plot_double
 import matplotlib.pyplot as plt
-from inputs import addittive_resample as expand_input
+# from inputs import addittive_resample as expand_input
+from inputs import frequency_resample as expand_input
 
 ###################################################################################################################
 l1 = 1.1  # First arm
