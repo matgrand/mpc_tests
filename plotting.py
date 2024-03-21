@@ -183,6 +183,17 @@ def plot_single(x, t, u, T, V, figsize=(12,10)):
     ax[0].grid(True), ax[1].grid(True), ax[3].grid(True)
     plt.tight_layout()
 
+
+def animate_single(xs, t, us, Ts, Vs, fps=60, anim_time=5, figsize=(6,6)):
+    skip = max(xs.shape[1]//int(fps*anim_time), 1)
+    xs, us, Ts, Vs = xs[:, ::skip, :], us[:, ::skip], Ts[:, ::skip], Vs[:, ::skip]
+    n, nt = xs.shape[:2]
+    fig, ax = plt.subplots(4, 1, figsize=figsize)
+    
+    colors = plt.cm.viridis(np.linspace(0, 1, n))
+    return None
+
+
 def plot_double(x, t, u, T, V, figsize=(12,10)):
     # plot the state and energies
     fig, ax = plt.subplots(6, 1, figsize=figsize) #figsize=(18,12))

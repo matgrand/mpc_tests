@@ -1,6 +1,7 @@
 import numpy as np
 import sympy as sp
-from inputs import addittive_resample as expand_input
+# from inputs import addittive_resample as expand_input
+from inputs import frequency_resample as expand_input
 
 # Constants
 g = 9.81 # [m/s^2] gravity
@@ -8,7 +9,7 @@ l = 1 # [m] length of the pendulum
 m = 1 # [kg] mass of the pendulum
 μ = 0.8 # [kg/s] damping coefficient
 
-INPUT_CLIP = 50 # maximum control input
+INPUT_CLIP = 30 # maximum control input
 
 # calculate the dynamics using symbolic math
 t = sp.symbols('t')
@@ -48,15 +49,28 @@ def step(x, u, dt):
     return np.array([θ, dθ]) # return the new state vector
 
 #simulate a run
-def simulate(x0, simT, dt, u):
+def simulate(x0, simT, dt, u, clip=True, continue_for=0):
     '''Simulate the pendulum'''
     n = int(simT/dt) # number of time steps
     t = np.linspace(0, simT, n) # time vector
     x = np.zeros((n, 2)) # [θ, dθ] -> state vector
     eu = expand_input(u, simT, n) # expand the control input
-    eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
+    if clip: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
     x[0] = x0 # initial conditions
     for i in range(1, n):
         x[i] = step(x[i-1], eu[i], dt)
+    
+    if continue_for > 0:
+        #extend the simulation with u=0
+        ne = int(continue_for/dt)
+        te = np.linspace(0, continue_for, ne)
+        x = np.vstack([x, np.zeros((ne, 2))])
+        for i in range(n, n+ne):
+            x[i] = step(x[i-1], 0, dt)
+        t = np.hstack([t, te])
+        eu = np.hstack([eu, np.zeros(ne)])
+        
+
     return x, t, eu
+
 
