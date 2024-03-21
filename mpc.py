@@ -17,7 +17,8 @@ elif DP: from double_pendulum import *
 elif CDP: from cart_double_pendulum import *
 
 #initial state: [angle, angular velocity]
-if SP: x0 = np.array([np.random.rand()*0.2 + np.pi, 0]) # [rad, rad/s] # SINGLE PENDULUM
+if SP: x0 = np.array([np.random.rand()*0.2 + np.pi
+                      , 0]) # [rad, rad/s] # SINGLE PENDULUM
 if DP: x0 = np.array([0.1, 0.1, 0, 0]) # [rad, rad/s, rad, rad/s] # DOUBLE PENDULUM
 if CDP: raise NotImplementedError('Cart double pendulum not implemented')
 # Time
@@ -29,7 +30,7 @@ if DP: INPUT_SIZE = int(100 * simT)  # number of control inputs
 
 
 ITERATIONS = 500 #1000
-CLIP = False
+CLIP = True
 
 
 print(f'input size: {INPUT_SIZE}')

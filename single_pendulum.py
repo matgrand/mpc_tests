@@ -9,7 +9,7 @@ l = 1 # [m] length of the pendulum
 m = 1 # [kg] mass of the pendulum
 μ = 0.8 # [kg/s] damping coefficient
 
-INPUT_CLIP = 30 # maximum control input
+INPUT_CLIP = 40 # maximum control input
 
 # calculate the dynamics using symbolic math
 t = sp.symbols('t')

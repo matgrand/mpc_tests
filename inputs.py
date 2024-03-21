@@ -49,12 +49,11 @@ def frequency_resample(iu, t, ne):
     iu: input, t: simulation time, ne: number expanded control inputs
     '''
     nc = len(iu) # length of the compressed input
-    assert nc <= ne, f'input must be smaller than ne nc: {nc}, ne: {ne}'
-    ou = np.zeros((ne)) # expanded control input
     et = np.linspace(0, t, ne) # expanded time
     freqs = np.linspace(0, 10, nc) # frequencies
-    for i in range(nc):
-        ou += iu[i]*np.sin(2*np.pi*freqs[i]*et) # frequency resample
+    # frequency resample
+    ou = np.sum([iu[i]*np.sin(2*np.pi*freqs[i]*et) for i in range(nc)], axis=0)
+
     return ou
 
 

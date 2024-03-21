@@ -8,8 +8,8 @@ C = (155/255,0,20/255) # unipd RGB
 
 def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6)):
     # animate the system
-    x = x[::int(1/fps/dt)] # display one frame every n time steps
-    u = u[::int(1/fps/dt)] # display one frame every n time steps
+    skip = max(int(1/fps/dt), 1)
+    x, u = x[::skip], u[::skip]
     sw = int(WAIT_S*fps) # sample to wait for
     x = np.concatenate([np.array([x[0]]*sw), x, np.array([x[-1]]*sw)]) if WAIT_S > 0 else x
     u = np.concatenate([np.array([u[0]]*sw), u, np.array([u[-1]]*sw)]) if WAIT_S > 0 else u
@@ -43,8 +43,8 @@ def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6)):
 
 def animate_double_pendulum(x, u, dt, l1, l2, fps=60, figsize=(6,6)):
     # animate the system
-    x = x[::int(1/fps/dt)] # display one frame every n time steps
-    u = u[::int(1/fps/dt)] # display one frame every n time steps
+    skip = max(int(1/fps/dt), 1)
+    x, u = x[::skip], u[::skip]
     sw = int(WAIT_S*fps) # sample to wait for
     x = np.concatenate([np.array([x[0]]*sw), x, np.array([x[-1]]*sw)]) if WAIT_S > 0 else x
     u = np.concatenate([np.array([u[0]]*sw), u, np.array([u[-1]]*sw)]) if WAIT_S > 0 else u
@@ -83,8 +83,8 @@ def animate_double_pendulum(x, u, dt, l1, l2, fps=60, figsize=(6,6)):
 
 def animate_cart_double(x, u, dt, l1, l2, fps=60, figsize=(6,6)):
     # animate the system
-    x = x[::int(1/fps/dt)] # display one frame every n time steps
-    u = u[::int(1/fps/dt)] # display one frame every n time steps
+    skip = max(int(1/fps/dt), 1)
+    x, u = x[::skip], u[::skip]
     sw = int(WAIT_S*fps) # sample to wait for
     x = np.concatenate([np.array([x[0]]*sw), x, np.array([x[-1]]*sw)]) if WAIT_S > 0 else x
     u = np.concatenate([np.array([u[0]]*sw), u, np.array([u[-1]]*sw)]) if WAIT_S > 0 else u
