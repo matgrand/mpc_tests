@@ -2,8 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from plotting import *
-from collections import deque
-
+# from inputs import addittive_resample as expu
+from inputs import frequency_resample as expu #expand input function
+ 
 SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
@@ -27,7 +28,7 @@ dt = 0.01 # [s] time step
 simT = 2 # [s] simulation time
 
 if SP: INPUT_SIZE = int(16)  # number of control inputs
-if DP: INPUT_SIZE = int(100 * simT)  # number of control inputs
+if DP: INPUT_SIZE = int(16)  # number of control inputs
 
 
 ITERATIONS = 300 #1000
@@ -60,23 +61,23 @@ if SP:
         final_cost = np.sum(te) + np.sum(ve) + np.sum(eu)
         return final_cost / n
 if DP:
-    kt  = 60 # kinetic energy weight MIN
-    kv  = -100 # potential energy weight MAX
-    keu = 2 # control expanded input weight MIN
+    kt  = 60 #60 # kinetic energy weight MIN
+    kv  = -100 #-100 # potential energy weight MAX
+    keu = 2 #2 # control expanded input weight MIN
     costs = [[],[],[]] # costs to plot later
     labels = ['T', 'V', 'u']
     def cost(x, eu, append=False):
         '''Cost function'''
         n = len(x) # number of time steps
-        weights = np.linspace(0, 1, n)**3 # weights for the cost function
         t = kinetic_energy(x) # kinetic energy
         v = potential_energy(x) # potential energy
-        te = kt * t * weights
-        ve = kv * v * weights 
-        eu = keu * eu**2 * np.linspace(0, 1, len(eu)) # weight for the control input
+        te = kt * t
+        ve = kv * v 
+        eu = keu * eu**2 * np.linspace(0, 1, len(eu))#**2 # weight for the control input
         # debug, append the energies
         if append: costs[0].append(te), costs[1].append(-ve), costs[2].append(eu)
-        return (np.sum(te) + np.sum(ve) + np.sum(eu)) / n # total cost
+        final_cost = np.sum(te) + np.sum(ve) + np.sum(eu)
+        return final_cost / n
 
 # "SOLVER"
 # optimize the control input to minimize the cost function
@@ -98,14 +99,14 @@ def grad(u, c):
     for j in range(INPUT_SIZE):
         up = np.copy(u)
         up[j] += lr * pd**i # perturb the control input
-        xp, _, eup = simulate(x0, simT, dt, up, CLIP) # simulate the pendulum
+        xp, _, eup = simulate(x0, simT, dt, up, expu, CLIP) # simulate the pendulum
         d[j] = (cost(xp, eup) - c) # calculate the gradient
     return d
 
 # GRADIENT DESCENT
 
 # first iteration
-x,t,eu = simulate(x0, simT, dt, u, CLIP) # simulate the pendulum
+x,t,eu = simulate(x0, simT, dt, u, expu, CLIP) # simulate the pendulum
 xs[0], us[0], Ts[0], Vs[0] = x, eu, kinetic_energy(x), potential_energy(x)
 J = cost(x, eu, append=True) # calculate the cost
 prev_J = J
@@ -115,7 +116,7 @@ for i in tqdm(range(1,ITERATIONS), ncols=60):
     Jgrad = grad(u, J) 
     new_u = u - Jgrad*lr # update the control input
     # simulate the pendulum
-    x,t,eu = simulate(x0, simT, dt, new_u, CLIP) 
+    x,t,eu = simulate(x0, simT, dt, new_u, expu, CLIP) 
     # save the state and control input
     xs[i], us[i], Ts[i], Vs[i] = x, eu, kinetic_energy(x), potential_energy(x) 
     # calculate the cost
@@ -139,7 +140,7 @@ J = cost(x, eu) # calculate the cost
 print(f'cost: {J:.2f}')
 print(f'u: {u}')
 
-x,t,eu = simulate(x0, simT, dt, u, CLIP) # simulate the pendulum
+x,t,eu = simulate(x0, simT, dt, u, expu, CLIP) # simulate the pendulum
 
 
 # calculate the energies
@@ -158,14 +159,14 @@ if SP:
     a3 = general_multiplot_anim(to_plot, t, ['x1','x2','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
     # plot_single(x, t, eu, T, V, figsize=(10,8))
     #extended simulation
-    x,t,eu = simulate(x0, simT, dt, u, CLIP, continue_for=2*simT) # simulate the pendulum
+    x,t,eu = simulate(x0, simT, dt, u, expu, CLIP, continue_for=2*simT) # simulate the pendulum
     ap1 = animate_pendulum(x, eu, dt, l, figsize=(4,4), title='dt=0.01')
     # dt = 0.0001
-    # x,t,eu = simulate(x0, simT, dt, u, CLIP, continue_for=2*simT) # simulate the pendulum
+    # x,t,eu = simulate(x0, simT, dt, u, expu, CLIP, continue_for=2*simT) # simulate the pendulum
     # ap2= animate_pendulum(x, eu, dt, l, figsize=(4,4), title='dt=0.0001')
     # dt=0.1
     # ap3 = animate_pendulum(x, eu, dt, l, figsize=(4,4), title='dt=0.1')
-    # x,t,eu = simulate(x0, simT, dt, u, CLIP, continue_for=2*simT) # simulate the pendulum
+    # x,t,eu = simulate(x0, simT, dt, u, expu, CLIP, continue_for=2*simT) # simulate the pendulum
 
 if DP:
     plot_double(x, t, eu, T, V, figsize=(10,8))

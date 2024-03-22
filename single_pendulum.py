@@ -1,7 +1,5 @@
 import numpy as np
 import sympy as sp
-# from inputs import addittive_resample as expand_input
-from inputs import frequency_resample as expand_input
 
 # Constants
 g = 9.81 # [m/s^2] gravity
@@ -49,7 +47,7 @@ def step(x, u, dt):
     return np.array([θ, dθ]) # return the new state vector
 
 #simulate a run
-def simulate(x0, simT, dt, u, clip=True, continue_for=0):
+def simulate(x0, simT, dt, u, expand_input, clip=True, continue_for=0):
     '''Simulate the pendulum'''
     n = int(simT/dt) # number of time steps
     t = np.linspace(0, simT, n) # time vector

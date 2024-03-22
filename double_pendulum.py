@@ -3,8 +3,6 @@ import numpy as np
 import sympy as sp
 from plotting import animate_double_pendulum, plot_double
 import matplotlib.pyplot as plt
-# from inputs import addittive_resample as expand_input
-from inputs import frequency_resample as expand_input
 
 ###################################################################################################################
 l1 = 1.1  # First arm
@@ -75,7 +73,7 @@ def step(x, u, dt):
     return np.concatenate([x, dx]) # return the new state vector
 
 #simulate a run
-def simulate(x0, simT, dt, u):
+def simulate(x0, simT, dt, u, expand_input):
     '''Simulate the pendulum'''
     n = int(simT/dt) # number of time steps
     t = np.linspace(0, simT, n) # time vector
