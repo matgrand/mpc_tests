@@ -60,7 +60,7 @@ def frequency_resample(iu, t, ne, max_freq=8):
 
 if __name__  == '__main__':
     # test the resampling
-    ni = 33
+    ni = 13
     ne = 100
 
     ti = np.linspace(0, 1, ni)

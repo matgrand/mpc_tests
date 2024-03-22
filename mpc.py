@@ -30,7 +30,7 @@ if SP: INPUT_SIZE = int(16)  # number of control inputs
 if DP: INPUT_SIZE = int(100 * simT)  # number of control inputs
 
 
-ITERATIONS = 200 #1000
+ITERATIONS = 300 #1000
 CLIP = True
 
 
@@ -92,10 +92,6 @@ nt = int(simT/dt) # number of time steps
 xs = np.zeros((ITERATIONS, nt, len(x0))) # state vectors
 us, Ts, Vs = [np.zeros((ITERATIONS, nt)) for _ in range(3)] # control inputs, kinetic and potential energies
 
-# initialize the best cost and control input
-best_J = np.inf 
-best_u = np.zeros_like(u)
-
 def grad(u, c):
     '''Calculate the gradient'''
     d = np.zeros(INPUT_SIZE) # initialize the gradient 
@@ -115,30 +111,26 @@ J = cost(x, eu, append=True) # calculate the cost
 prev_J = J
 
 for i in tqdm(range(1,ITERATIONS), ncols=60):
-# for i in range(1,ITERATIONS):
-
-    Jgrad = grad(u, J) # calculate the gradient
+    # calculate the gradient
+    Jgrad = grad(u, J) 
     new_u = u - Jgrad*lr # update the control input
-
     # simulate the pendulum
-    x,t,eu = simulate(x0, simT, dt, new_u, CLIP) # simulate the pendulum
-
-    xs[i], us[i], Ts[i], Vs[i] = x, eu, kinetic_energy(x), potential_energy(x) # save the state and control input
-    
-    new_J = cost(x, eu, append=True) # calculate the cost
-
-    if J < best_J: best_J, best_u = new_J, new_u # update the best cost and control input
+    x,t,eu = simulate(x0, simT, dt, new_u, CLIP) 
+    # save the state and control input
+    xs[i], us[i], Ts[i], Vs[i] = x, eu, kinetic_energy(x), potential_energy(x) 
+    # calculate the cost
+    new_J = cost(x, eu, append=True) 
 
     if new_J < J: # decreasing cost
         u, J = new_u, new_J # update the control input and cost 
-        lr *= 1.2 # increase the learning rate
+        lr *= 1.1 # increase the learning rate
     else: # increasing cost
-        lr *= 0.9 # decrease the learning rate
+        lr *= 0.95 # decrease the learning rate
         if lr < 1e-10: print(f'learning rate too small, breaking...'); break
 
     if i%1 == 0: print(f'cost: {J:.2f}, lr: {lr:.1e}', end='\r')
-u = best_u
-print(f'iteration {i+1}/{ITERATIONS}, cost: {best_J:.2f}')
+# u = best_u
+print(f'iteration {i+1}/{ITERATIONS}, cost: {J:.2f}')
 
 # SIMULATION 
 ################################################################################################
@@ -159,21 +151,21 @@ V = potential_energy(x) # potential energy
 
 # plot the state and energies
 if SP:
-    plot_single(x, t, eu, T, V, figsize=(10,8))
     a2 = animate_costs(np.array(costs), labels=labels, figsize=(6,4), logscale=True)
-    print(f'xs shape: {xs.shape}, us shape: {us.shape}, Ts shape: {Ts.shape}, Vs shape: {Vs.shape}')
-    # to_plot = np.array([xs[]])
-    # a3 = general_multiplot_anim(xs, t, us, Ts, Vs, fps=60, anim_time=5, figsize=(10,8))
+    xs1, xs2 = xs[:, :, 0], xs[:, :, 1] # angles and angular velocities splitted
+    print(f'xs1: {xs1.shape}, xs2: {xs2.shape}, us: {us.shape}, Ts: {Ts.shape}, Vs: {Vs.shape}')
+    to_plot = np.array([xs1, xs2, us, Ts, Vs])
+    a3 = general_multiplot_anim(to_plot, t, ['x1','x2','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
+    # plot_single(x, t, eu, T, V, figsize=(10,8))
     #extended simulation
-    dt = 0.0001
     x,t,eu = simulate(x0, simT, dt, u, CLIP, continue_for=2*simT) # simulate the pendulum
-    ap1 = animate_pendulum(x, eu, dt, l, figsize=(4,4), title='dt=0.0001')
-    dt = 0.01
-    x,t,eu = simulate(x0, simT, dt, u, CLIP, continue_for=2*simT) # simulate the pendulum
-    ap2 = animate_pendulum(x, eu, dt, l, figsize=(4,4), title='dt=0.01')
-    # dt=0.1
+    ap1 = animate_pendulum(x, eu, dt, l, figsize=(4,4), title='dt=0.01')
+    # dt = 0.0001
     # x,t,eu = simulate(x0, simT, dt, u, CLIP, continue_for=2*simT) # simulate the pendulum
+    # ap2= animate_pendulum(x, eu, dt, l, figsize=(4,4), title='dt=0.0001')
+    # dt=0.1
     # ap3 = animate_pendulum(x, eu, dt, l, figsize=(4,4), title='dt=0.1')
+    # x,t,eu = simulate(x0, simT, dt, u, CLIP, continue_for=2*simT) # simulate the pendulum
 
 if DP:
     plot_double(x, t, eu, T, V, figsize=(10,8))

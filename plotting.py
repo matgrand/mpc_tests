@@ -165,36 +165,37 @@ def animate_costs(costs, labels, fps=60, anim_time=5, figsize=(8,6), logscale=Fa
     plt.tight_layout()
     return anim
     
-def general_multiplot_anim(x, t=None, labels=None, fps=60, anim_time=5, figsize=(8,6)):
+def general_multiplot_anim(x, t=None, labels=None, fps=20.0, anim_time=10.0, figsize=(8,8)):
     assert x.ndim == 3, f'x.ndim: {x.ndim}'
     skip = max(x.shape[1]//int(fps*anim_time), 1)
     x = x[:, ::skip, :]
     n, iters, nt = x.shape # iterations, number of plots, time
+    print(f'n: {n}, iters: {iters}, nt: {nt}')
     if t is None: t = np.linspace(0, 1, nt)
     if labels is None: labels = [f'plot {i}' for i in range(n)]
 
     fig, ax = plt.subplots(n, 1, figsize=figsize)
     if n == 1: ax = [ax]
     ax[0].grid(True)
-    colors = plt.cm.viridis(np.linspace(0, 1, n))
-    lines = [ax[i].plot([], [], '-', lw=2, color=colors[i], label=labels[i])[0] for i in range(n)]
+    colors = [C for _ in range(n)]#plt.cm.viridis(np.linspace(0, 1, n))
+    lines = [ax[i].plot([], [], '--', lw=1, color=colors[i], label=labels[i])[0] for i in range(n)]
 
     for i in range(n):
-        ax[i].set_xlim(0, 1)
-        ax[i].set_ylim(np.min(x), np.max(x))
-        ax[i].grid(True)
-        ax[i].legend()
+        ax[i].plot(t, x[i, -1, :], '', lw=2, color=colors[i])
+        ax[i].grid(True), ax[i].legend()
         ax[i].set_ylabel(labels[i])
         if i == n-1: ax[i].set_xlabel('time [s]')
+
     iter_template = 'iteration = %d /' + str(iters*skip)
     time_text = ax[0].text(0.05, 0.9, '', transform=ax[0].transAxes)
+
     def init():
         for line in lines: line.set_data([], [])
         time_text.set_text('')
         return lines + [time_text]
     def animate(i):
         for j, line in enumerate(lines):
-            line.set_data(t, x[i, j, :])
+            line.set_data(t, x[j, i, :])
         time_text.set_text(iter_template % (i*skip))
         return lines + [time_text]
     
@@ -222,15 +223,6 @@ def plot_single(x, t, u, T, V, figsize=(12,10)):
     ax[0].grid(True), ax[1].grid(True), ax[3].grid(True)
     plt.tight_layout()
 
-
-def animate_single(xs, t, us, Ts, Vs, fps=60, anim_time=5, figsize=(6,6)):
-    skip = max(xs.shape[1]//int(fps*anim_time), 1)
-    xs, us, Ts, Vs = xs[:, ::skip, :], us[:, ::skip], Ts[:, ::skip], Vs[:, ::skip]
-    n, nt = xs.shape[:2]
-    fig, ax = plt.subplots(4, 1, figsize=figsize)
-    
-    colors = plt.cm.viridis(np.linspace(0, 1, n))
-    return None
 
 
 def plot_double(x, t, u, T, V, figsize=(12,10)):
