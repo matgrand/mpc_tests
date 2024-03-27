@@ -73,16 +73,14 @@ def step(x, u, dt):
     return np.concatenate([x, dx]) # return the new state vector
 
 #simulate a run
-def simulate(x0, simT, dt, u, expand_input):
+def simulate(x0, simT, dt, eu, clip=True):
     '''Simulate the pendulum'''
     n = int(simT/dt) # number of time steps
     t = np.linspace(0, simT, n) # time vector
     x = np.zeros((n, 4)) # [θ1, θ2, dθ1, dθ2] -> state vector
-    eu = expand_input(u, simT, n) # expand the control input
-    eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
+    if clip: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
     x[0] = x0 # initial conditions
-    for i in range(1, n):
-        x[i] = step(x[i-1], eu[i], dt) # integrate the differential equation
+    for i in range(1, n): x[i] = step(x[i-1], eu[i], dt) # integrate the differential equation
     return x, t, eu
 
 
