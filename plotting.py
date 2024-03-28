@@ -132,7 +132,6 @@ def animate_costs(costs, labels, fps=60, anim_time=5, figsize=(8,6), logscale=Fa
 
     t = np.linspace(0, 1, nt)
     fig, ax = plt.subplots(figsize=figsize)
-    # ax.set_ylim(np.min(costs), np.max(costs))
     ax.set_xlim(0, 1)
     ax.grid(True)
 
