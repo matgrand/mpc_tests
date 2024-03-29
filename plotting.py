@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np; π = np.pi
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 WAIT_S = 0.5 # wait time in seconds

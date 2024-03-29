@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np; π = np.pi
 import matplotlib.pyplot as plt
 
 def linear_resample(iu, t): 
@@ -51,7 +51,7 @@ def frequency_resample(iu, t, max_freq=8):
     nc, ne = len(iu), len(t) # number of compressed control inputs
     et = np.linspace(0, t[-1], ne) # expanded time
     freqs = -1 + np.logspace(0, np.log10(max_freq), nc) # frequencies
-    return np.sum([iu[i]*np.sin(2*np.pi*freqs[i]*et) for i in range(nc)], axis=0) # add the sinusoids
+    return np.sum([iu[i]*np.sin(2*π*freqs[i]*et) for i in range(nc)], axis=0) # add the sinusoids
 
 if __name__  == '__main__':
     # test the resampling
@@ -60,7 +60,7 @@ if __name__  == '__main__':
 
     ti = np.linspace(0, 1, ni)
     te = np.linspace(0, 1, ne)
-    iu = 0.1 + np.sin(3*np.pi*ti) # compressed input
+    iu = 0.1 + np.sin(3*π*ti) # compressed input
 
     lreu = linear_resample(iu, te) # linear resample
     adreu = addittive_resample(iu, te) # addittive resample

@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np; π = np.pi
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from plotting import *
@@ -34,28 +34,28 @@ def simulate(x0, t, eu):
 costs = [[],[],[]] # costs to plot later
 labels = ['T', 'V', 'u']
 # def cost(x, eu, append=False):
-#     '''Cost function'''
 #     n = len(x) # number of time steps
-#     te = kinetic_energy(x) # kinetic energy
-#     ve = potential_energy(x) # potential energy
-#     wl = np.linspace(0, 1, n) # weight for the time
-#     te = 60 * te * wl # kinetic energy
-#     ve = -100 * ve # potential energy
-#     eu = 0 * eu**2 * wl # control input
-#     # debug, append the energies
-#     if append: costs[0].append(te), costs[1].append(-ve), costs[2].append(eu)
-#     final_cost = np.sum(te) + np.sum(ve) + np.sum(eu)
-#     return final_cost / n 
+#     p = (np.mod(x[:,0]+π, 2*π)-π) / π # p is between -1 and 1
+#     wp = np.sqrt(np.abs(p)) # use position as a weight
+#     # wp = np.abs(p) # use position as a weight
+#     # wp = p**2 # use position as a weight
+#     ve = -10 * potential_energy(x) # potential energy
+#     te = 30 * kinetic_energy(x) * wp # kinetic energy
+#     uc = 0 * eu**2 #* np.linspace(0, 1, n) # control input
+#     if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
+#     final_cost =  np.sum(te) + np.sum(ve) + np.sum(uc)
+#     return final_cost / n
 def cost(x, eu, append=False):
-    n = len(x) # number of time steps
-    p = (np.mod(x[:,0] + np.pi, 2*np.pi) - np.pi)/np.pi # p is between -1 and 1
-    wp = np.sqrt(np.abs(p)) # use position as a weight
-    ve = -100 * potential_energy(x) # potential energy
-    te = 300 * kinetic_energy(x) * wp # kinetic energy
-    uc = 5 * eu**2 #* np.linspace(0, 1, n) # control input
+    # p = (np.mod(x[:,0]+π, 2*π)-π) / π # p is between -1 and 1
+    p = x[:,0] # position
+    v = x[:,1] # angular velocity
+    ve = 10 * np.sqrt(np.abs(p)) # kinda like potential energy
+    te = 1 * np.sqrt(np.abs(v)) # kinda like kinetic energy
+    uc = 0 * eu**2 
     if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
     final_cost =  np.sum(te) + np.sum(ve) + np.sum(uc)
-    return final_cost / n
+    return final_cost / len(x)
+
 
 def grad(p, u, x0, t):
     '''Calculate the gradient, using finite differences'''
@@ -116,7 +116,7 @@ def mpc_iter(x0, t, lr, opt_iters, min_lr, input_size):
 xss, uss, Tss, Vss = [], [], [], [] # states and energies to plot later
 def test_1iter_mpc():
     #initial state: [angle, angular velocity]
-    if SP: x0 = np.array([0.2 #+ np.pi 
+    if SP: x0 = np.array([0.2 + π 
                         , 3]) # [rad, rad/s] # SINGLE PENDULUM
     if DP: x0 = np.array([0.1, 0.1, 0, 0]) # [rad, rad/s, rad, rad/s] # DOUBLE PENDULUM
     if CDP: raise NotImplementedError('Cart double pendulum not implemented')
@@ -127,7 +127,7 @@ def test_1iter_mpc():
 
     INPUT_SIZE = int(16)  # number of control inputs
 
-    OPT_ITERS = 500 #1000
+    OPT_ITERS = 300 #1000
     MIN_LR = 1e-4 # minimum learning rate
 
     lr = 1e-1 # learning rate for the gradient descent
@@ -156,7 +156,7 @@ def test_1iter_mpc():
 def test_mpc():
     ''' Test the MPC'''
         #initial state: [angle, angular velocity]
-    if SP: x0 = np.array([0.2 + np.pi 
+    if SP: x0 = np.array([0.2 + π 
                         , 0]) # [rad, rad/s] # SINGLE PENDULUM
     if DP: x0 = np.array([0.1, 0.1, 0, 0]) # [rad, rad/s, rad, rad/s] # DOUBLE PENDULUM
     if CDP: raise NotImplementedError('Cart double pendulum not implemented')
@@ -228,7 +228,7 @@ def single_free_evolution():
     #initial state: [angle, angular velocity]
     x0 = np.array([0.2, 0]) # [rad, rad/s] # SINGLE PENDULUM
     # Time
-    t = np.linspace(0, 20, 20*100000) # time steps
+    t = np.linspace(0, 20, 20*10000) # time steps
     eu = np.zeros(len(t)) # control input
     if CLIP: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
     x = simulate(x0, t, eu) # simulate the pendulum
@@ -237,7 +237,6 @@ def single_free_evolution():
 
 def plot_cost_function():
     #create a 3d plot
-    from mpl_toolkits.mplot3d import Axes3D
     from matplotlib import cm
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -245,7 +244,7 @@ def plot_cost_function():
     #create a meshgrid
     N = 200
     xs = np.linspace(-1, 1, N)
-    ys = np.linspace(-10, 10, N)
+    ys = np.linspace(-1, 1, N)
 
     X, Y = np.meshgrid(xs, ys)
     Z = np.zeros(X.shape)
@@ -253,15 +252,16 @@ def plot_cost_function():
     for i in tqdm(range(N)):
         for j in range(N):
             p,v = xs[i], ys[j] # position and velocity
-            xi = np.array([p,v])
-            u = 0
-            p = (np.mod(xi[0] + np.pi, 2*np.pi) - np.pi)/np.pi # p is between -1 and 1
-            wp = np.sqrt(np.abs(0.1*p))/0.1
-            ve = -100 * potential_energy(xi)
-            te = 10 * kinetic_energy(xi) * wp
-            uc = 0 * u**2
-            Z[i,j] = te + ve + uc
-
+            xi = np.array([p,v]) # state vector
+            p = (np.mod(p + π, 2*π) - π)/π # p is between -1 and 1
+            wp = np.sqrt(np.abs(p))
+            # wp = np.abs(p)
+            wv = np.sqrt(np.abs(v))
+            # ve = -10 * (potential_energy(xi))
+            # te = 1 * kinetic_energy(xi)# * wp
+            ve = wp
+            te = wv
+            Z[j,i] = te + ve
 
     #plot the cost function
     ax.plot_surface(X, Y, Z, cmap=cm.coolwarm)
@@ -273,7 +273,7 @@ def plot_cost_function():
 
 if __name__ == '__main__':
 
+    # plot_cost_function()
     # single_free_evolution()
     test_1iter_mpc()
     # test_mpc()
-    # plot_cost_function()

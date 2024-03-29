@@ -1,5 +1,5 @@
 
-import numpy as np
+import numpy as np; π = np.pi
 import sympy as sp
 from plotting import animate_double_pendulum, plot_double
 import matplotlib.pyplot as plt
@@ -86,7 +86,7 @@ def simulate(x0, simT, dt, eu, clip=True):
 
 
 if __name__  == '__main__':
-    x0 = np.array([np.pi/2, np.pi/2, 0, 0]) # initial conditions
+    x0 = np.array([π/2, π/2, 0, 0]) # initial conditions
     simT = 10 # simulation time
     dt = 1e-2 # time step
     u = np.zeros(int(simT/dt)) # control input

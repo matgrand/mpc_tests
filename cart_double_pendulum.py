@@ -1,5 +1,5 @@
 
-import numpy as np
+import numpy as np; π = np.pi
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import sympy as sp
@@ -75,8 +75,8 @@ model_a = sp.lambdify((θ1, θ2, ω1, ω2, xc, v), sol_a, 'numpy')
 nt = np.arange(0, SIMT, dt)
 nθ1, nω1, nα1, nθ2, nω2, nα2, nxc, nv, na = [np.zeros(len(nt)) for _ in range(9)]
 
-nθ1[0] = np.pi+0.1 # initial angle of the first pendulum
-nθ2[0] = np.pi-0.1 # initial angle of the second pendulum
+nθ1[0] = π+0.1 # initial angle of the first pendulum
+nθ2[0] = π-0.1 # initial angle of the second pendulum
 
 for i in tqdm(range(1, len(nt))):
     nα1[i] = model_α1(nθ1[i-1], nθ2[i-1], nω1[i-1], nω2[i-1], nxc[i-1], nv[i-1])

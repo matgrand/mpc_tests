@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np; π = np.pi
 import matplotlib.pyplot as plt
 import sympy as sp
 from tqdm import tqdm
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     for i in tqdm(range(1, len(t))):
         # w = np.random.normal(0, .5, 3) # generate random disturbance forces
         # ui = pid.control(-x[i-1, 0])
-        ui = 13*np.sin(2*np.pi*1.5*t[i]) # control input
+        ui = 13*np.sin(2*π*1.5*t[i]) # control input
         w = [0, 0, 0]
         x[i] = sys.step(x[i-1], ui, w, dt) 
         u[i] = ui
