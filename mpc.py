@@ -33,29 +33,16 @@ def simulate(x0, t, eu):
 # cost function
 costs = [[],[],[]] # costs to plot later
 labels = ['T', 'V', 'u']
-# def cost(x, eu, append=False):
-#     n = len(x) # number of time steps
-#     p = (np.mod(x[:,0]+π, 2*π)-π) / π # p is between -1 and 1
-#     wp = np.sqrt(np.abs(p)) # use position as a weight
-#     # wp = np.abs(p) # use position as a weight
-#     # wp = p**2 # use position as a weight
-#     ve = -10 * potential_energy(x) # potential energy
-#     te = 30 * kinetic_energy(x) * wp # kinetic energy
-#     uc = 0 * eu**2 #* np.linspace(0, 1, n) # control input
-#     if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
-#     final_cost =  np.sum(te) + np.sum(ve) + np.sum(uc)
-#     return final_cost / n
 def cost(x, eu, append=False):
-    # p = (np.mod(x[:,0]+π, 2*π)-π) / π # p is between -1 and 1
-    p = x[:,0] # position
-    v = x[:,1] # angular velocity
-    tw = np.linspace(0.5, 1, len(x)) # time weight
-    ve = 10 * np.sqrt(np.abs(p)) * tw # kinda like potential energy
-    te = 1 * np.sqrt(np.abs(v)) * tw  # kinda like kinetic energy
-    uc = 0 * eu**2 
+    n = len(x) # number of time steps
+    p = (np.mod(x[:,0]+π, 2*π)-π) / π # p is between -1 and 1
+    wp = np.sqrt(np.abs(p)) # use position as a weight for T
+    ve = -1 * potential_energy(x) # potential energy
+    te = 2 * kinetic_energy(x) * wp # kinetic energy
+    uc = 0.01 * eu**2 * wp # control input
     if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
     final_cost =  np.sum(te) + np.sum(ve) + np.sum(uc)
-    return final_cost / len(x)
+    return final_cost / n
 
 
 def grad(p, u, x0, t):
@@ -157,62 +144,75 @@ def test_1iter_mpc():
 def test_mpc():
     ''' Test the MPC'''
         #initial state: [angle, angular velocity]
-    if SP: x0 = np.array([0.2 # + π 
-                        , 3]) # [rad, rad/s] # SINGLE PENDULUM
+    if SP: x0 = np.array([0.2 + π 
+                        , 0]) # [rad, rad/s] # SINGLE PENDULUM
     if DP: x0 = np.array([0.1, 0.1, 0, 0]) # [rad, rad/s, rad, rad/s] # DOUBLE PENDULUM
     if CDP: raise NotImplementedError('Cart double pendulum not implemented')
 
     # Time
     T = 5 # simulation time
-    H = 1 # horizon of the MPC
-    assert T % H == 0, 'T must be divisible by H' # for more readable code
+    OH = 1 # optimization horizon of the MPC
+    AH = .5 # action horizon of the MPC
+    assert T % AH == 0 # for more readable code
 
     OPT_FREQ = 100 # frequency of the time steps optimization
-    SIM_FREQ = 1000 # frequency of the time steps simulation
+    SIM_FREQ = 10000 # frequency of the time steps simulation
+    assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 
-    INPUT_SIZE = int(16*H)  # number of control inputs
+    INPUT_SIZE = int(16*OH)  # number of control inputs
 
     OPT_ITERS = 300 #1000
     MIN_LR = 1e-6 # minimum learning rate
 
     # lr = 1e-1 # learning rate for the gradient descent
 
-    mpc_iters = int(T/H) # number of MPC iterations
+    mpc_iters = int(T/AH) # number of MPC iterations
 
     x0i = x0 # initial state
     u, uss, xss, Tss, Vss, costss = [],[],[],[],[],[] # states and energies to plot later
-    all_x, all_ts = [], [] # all the states and time steps to plot later
+    all_x, all_ts, all_eu = [],[],[] # states, time steps and control inputs to plot later
     for i in range(mpc_iters):
         global costs
         costs = [[],[],[]] # reset the costs
         ## RUN THE MPC
-        toi = np.linspace(0, H, int(H*OPT_FREQ)) # time steps optimization
-        tsi = np.linspace(0, H, int(H*SIM_FREQ)) # time steps simulation
+        toi = np.linspace(0, OH, int(OH*OPT_FREQ)) # time steps optimization
+        tai = np.linspace(0, AH, int(AH*SIM_FREQ)) # time steps action
+        tsi = np.linspace(0, OH, int(OH*SIM_FREQ)) # time steps simulation
 
         ui, xs, us, Ts, Vs = mpc_iter(x0i, toi, 0.1, OPT_ITERS, MIN_LR, INPUT_SIZE) # run the MPC
         eu = expu(ui, tsi) # expand the control input to simulation times
+        
+        # print(f'eu: {eu.shape}, tai: {tai.shape}, tsi: {tsi.shape}')
+        
+        eu = eu[:len(tai)] # crop the control input to the action horizon
+
+        # print(f'eu: {eu.shape}, tai: {tai.shape}, tsi: {tsi.shape}')
+        # print(f'xs: {xs.shape}, us: {us.shape}, Ts: {Ts.shape}, Vs: {Vs.shape}')
+        ko = int(len(tai) * OPT_FREQ/SIM_FREQ)
+        # print(f'ko: {ko}')
+        xs, us, Ts, Vs = xs[:,:ko], us[:,:ko], Ts[:,:ko], Vs[:,:ko]
+        # print(f'xs: {xs.shape}, us: {us.shape}, Ts: {Ts.shape}, Vs: {Vs.shape}')
+        # exit()
+
         if CLIP: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP)
-        x = simulate(x0i, tsi, eu) # simulate the pendulum
+        x = simulate(x0i, tai, eu) # simulate the pendulum
         x0i = x[-1] # last state of the simulation is the initial state of the next iteration
 
         # save the results
-        all_x.append(x), all_ts.append(tsi) # save the states and time steps
+        all_x.append(x), all_ts.append(tai), all_eu.append(eu)
         u.append(ui), uss.append(us), xss.append(xs), Tss.append(Ts), Vss.append(Vs), costss.append(np.array(costs))
         #print recap
         print(f'iteration: {i+1}/{mpc_iters} cost: {cost(x, eu):.2f}    ')
     
     #reassemble the results
-    eu = np.concatenate([expu(ui, tsi) for ui in u]) # control input
+    x, ts, eu = [np.concatenate(a) for a in [all_x, all_ts, all_eu]]
     xs, us, Ts, Vs, costs = [np.concatenate(a, axis=1) for a in [xss, uss, Tss, Vss, costss]]
-
-    # final simulation
-    x, ts = np.concatenate(all_x, axis=0), np.concatenate(all_ts, axis=0) # all the states and time steps
 
     ##  PLOTTING
     # plot the state and energies
     to = np.linspace(0, T, int(T*OPT_FREQ)) # time steps optimization
     if SP:
-        a2 = animate_costs(costs, labels=labels, figsize=(6,4), logscale=True)
+        # a2 = animate_costs(costs, labels=labels, figsize=(6,4), logscale=True)
         xs1, xs2 = xs[:, :, 0], xs[:, :, 1] # angles and angular velocities splitted
         to_plot = np.array([xs1, xs2, us, Ts, Vs])
         a3 = general_multiplot_anim(to_plot, to, ['x1','x2','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
