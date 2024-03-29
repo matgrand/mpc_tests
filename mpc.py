@@ -38,12 +38,11 @@ def cost(x, eu, append=False):
     p = (np.mod(x[:,0]+π, 2*π)-π) / π # p is between -1 and 1
     wp = np.sqrt(np.abs(p)) # use position as a weight for T
     ve = -1 * potential_energy(x) # potential energy
-    te = 2 * kinetic_energy(x) * wp # kinetic energy
+    te = 1 * kinetic_energy(x) * wp # kinetic energy
     uc = 0.01 * eu**2 * wp # control input
     if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
     final_cost =  np.sum(te) + np.sum(ve) + np.sum(uc)
     return final_cost / n
-
 
 def grad(p, u, x0, t):
     '''Calculate the gradient, using finite differences'''
@@ -150,7 +149,7 @@ def test_mpc():
     if CDP: raise NotImplementedError('Cart double pendulum not implemented')
 
     # Time
-    T = 5 # simulation time
+    T = 3 # simulation time
     OH = 1 # optimization horizon of the MPC
     AH = .5 # action horizon of the MPC
     assert T % AH == 0 # for more readable code
@@ -161,10 +160,10 @@ def test_mpc():
 
     INPUT_SIZE = int(16*OH)  # number of control inputs
 
-    OPT_ITERS = 300 #1000
+    OPT_ITERS = 100 #1000
     MIN_LR = 1e-6 # minimum learning rate
 
-    # lr = 1e-1 # learning rate for the gradient descent
+    lr = 1e-1 # learning rate for the gradient descent
 
     mpc_iters = int(T/AH) # number of MPC iterations
 
@@ -172,47 +171,33 @@ def test_mpc():
     u, uss, xss, Tss, Vss, costss = [],[],[],[],[],[] # states and energies to plot later
     all_x, all_ts, all_eu = [],[],[] # states, time steps and control inputs to plot later
     for i in range(mpc_iters):
-        global costs
-        costs = [[],[],[]] # reset the costs
         ## RUN THE MPC
         toi = np.linspace(0, OH, int(OH*OPT_FREQ)) # time steps optimization
         tai = np.linspace(0, AH, int(AH*SIM_FREQ)) # time steps action
         tsi = np.linspace(0, OH, int(OH*SIM_FREQ)) # time steps simulation
 
-        ui, xs, us, Ts, Vs = mpc_iter(x0i, toi, 0.1, OPT_ITERS, MIN_LR, INPUT_SIZE) # run the MPC
-        eu = expu(ui, tsi) # expand the control input to simulation times
-        
-        # print(f'eu: {eu.shape}, tai: {tai.shape}, tsi: {tsi.shape}')
-        
+        ui, xs, us, Ts, Vs = mpc_iter(x0i, toi, lr, OPT_ITERS, MIN_LR, INPUT_SIZE) # run the MPC
+        eu = expu(ui, tsi) # expand the control input to simulation times        
         eu = eu[:len(tai)] # crop the control input to the action horizon
-
-        # print(f'eu: {eu.shape}, tai: {tai.shape}, tsi: {tsi.shape}')
-        # print(f'xs: {xs.shape}, us: {us.shape}, Ts: {Ts.shape}, Vs: {Vs.shape}')
-        ko = int(len(tai) * OPT_FREQ/SIM_FREQ)
-        # print(f'ko: {ko}')
-        xs, us, Ts, Vs = xs[:,:ko], us[:,:ko], Ts[:,:ko], Vs[:,:ko]
-        # print(f'xs: {xs.shape}, us: {us.shape}, Ts: {Ts.shape}, Vs: {Vs.shape}')
-        # exit()
 
         if CLIP: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP)
         x = simulate(x0i, tai, eu) # simulate the pendulum
         x0i = x[-1] # last state of the simulation is the initial state of the next iteration
 
         # save the results
-        all_x.append(x), all_ts.append(tai), all_eu.append(eu)
-        u.append(ui), uss.append(us), xss.append(xs), Tss.append(Ts), Vss.append(Vs), costss.append(np.array(costs))
-        #print recap
+        cr = int(len(tai) * OPT_FREQ/SIM_FREQ) # crop index 
+        xs, us, Ts, Vs = xs[:,:cr], us[:,:cr], Ts[:,:cr], Vs[:,:cr] # crop the results
+        all_x.append(x), all_ts.append(tai), all_eu.append(eu) 
+        u.append(ui), uss.append(us), xss.append(xs), Tss.append(Ts), Vss.append(Vs)
         print(f'iteration: {i+1}/{mpc_iters} cost: {cost(x, eu):.2f}    ')
     
     #reassemble the results
     x, ts, eu = [np.concatenate(a) for a in [all_x, all_ts, all_eu]]
-    xs, us, Ts, Vs, costs = [np.concatenate(a, axis=1) for a in [xss, uss, Tss, Vss, costss]]
+    xs, us, Ts, Vs = [np.concatenate(a, axis=1) for a in [xss, uss, Tss, Vss]]
 
     ##  PLOTTING
-    # plot the state and energies
     to = np.linspace(0, T, int(T*OPT_FREQ)) # time steps optimization
     if SP:
-        # a2 = animate_costs(costs, labels=labels, figsize=(6,4), logscale=True)
         xs1, xs2 = xs[:, :, 0], xs[:, :, 1] # angles and angular velocities splitted
         to_plot = np.array([xs1, xs2, us, Ts, Vs])
         a3 = general_multiplot_anim(to_plot, to, ['x1','x2','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
@@ -274,5 +259,5 @@ if __name__ == '__main__':
 
     # plot_cost_function()
     # single_free_evolution()
-    # test_1iter_mpc()
+    test_1iter_mpc()
     test_mpc()
