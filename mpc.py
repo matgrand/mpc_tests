@@ -2,8 +2,8 @@ import numpy as np; π = np.pi
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from plotting import *
-# from inputs import addittive_resample as expu
-from inputs import frequency_resample as expu 
+from inputs import addittive_resample as expu
+# from inputs import frequency_resample as expu 
 from numpy.random import uniform
  
 SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
@@ -40,7 +40,7 @@ def cost(x, eu, u0, append=False):
     wp = np.sqrt(np.abs(p)) # use position as a weight for T
     ve = -1 * potential_energy(x) # potential energy
     te = 1 * kinetic_energy(x) * wp # kinetic energy
-    uc = 0.01 * eu**2 * wp # control input
+    uc = 0.001 * eu**2 * wp # control input
     cc = 0.01 * (eu[0] - u0)**2 * n # continuity cost
     if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
     final_cost =  np.sum(te) + np.sum(ve) + np.sum(uc) + cc
