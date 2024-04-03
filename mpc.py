@@ -20,8 +20,8 @@ elif DP: from double_pendulum import *
 elif CDP: from cart_double_pendulum import *
 
 CLIP = True # clip the control input
-INPUT_CLIP = 5 # clip the control input
-MIN_IMPROVEMENT = 1e-6 # minimum improvement for the gradient descent
+INPUT_CLIP = 7 # clip the control input (if < 9.81, it needs the swing up)
+MIN_IMPROVEMENT = 1e-8 # minimum improvement for the gradient descent
 
 # function to simulate a run
 def simulate(x0, t, eu):
@@ -35,18 +35,6 @@ def simulate(x0, t, eu):
 # cost function
 costs = [[],[],[]] # costs to plot later
 labels = ['T', 'V', 'u']
-# def cost(x, eu, u0, append=False):
-#     n = len(x) # number of time steps
-#     p = (np.mod(x[:,0]+π, 2*π)-π) / π # p is between -1 and 1
-#     wp = np.sqrt(np.abs(p)) # use position as a weight for T
-#     # wp = np.abs(p) # use position as a weight for T
-#     ve = -1 * potential_energy(x) # potential energy
-#     te = 1 * kinetic_energy(x) * wp # kinetic energy
-#     uc = 0.01 * eu**2 * wp # control input
-#     cc = 0.01 * (eu[0] - u0)**2 * n # continuity cost
-#     if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
-#     final_cost =  np.sum(te) + np.sum(ve) + np.sum(uc) + cc
-#     return final_cost / n
 
 def cost(x, eu, u0, append=False):
     n = len(x) # number of time steps
@@ -55,8 +43,8 @@ def cost(x, eu, u0, append=False):
     # wp = np.abs(p) # use position as a weight for T
     ve = -1 * potential_energy(x) # potential energy
     te = 1 * kinetic_energy(x) * wp # kinetic energy
-    uc = 0.01 * eu**2 * wp # control input
-    cc = 0.01 * (eu[0] - u0)**2 * n # continuity cost
+    uc = 0*0.01 * eu**2 * wp # control input
+    cc = 0.1 * (eu[0] - u0)**2 * n # continuity cost
     if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
     final_cost =  np.sum(te) + np.sum(ve) + np.sum(uc) + cc
     return final_cost / n
@@ -128,13 +116,13 @@ def test_1iter_mpc():
     if CDP: raise NotImplementedError('Cart double pendulum not implemented')
 
     # Time
-    T = 1 # simulation time
+    T = 3 # simulation time
     to = np.linspace(0, T, int(T*100)) # time steps optimization
 
     INPUT_SIZE = int(16*T)  # number of control inputs
 
     OPT_ITERS = 500 #1000
-    MIN_LR = 1e-4 # minimum learning rate
+    MIN_LR = 1e-6 # minimum learning rate
 
     lr = 1e-1 # learning rate for the gradient descent
 
@@ -150,7 +138,7 @@ def test_1iter_mpc():
     ##  PLOTTING
     # plot the state and energies
     if SP:
-        a2 = animate_costs(np.array(costs), labels=labels, figsize=(6,4), logscale=False)
+        a2 = animate_costs(np.array(costs), labels=labels, figsize=(6,4), logscale=True)
         xs1, xs2 = xs[:, :, 0], xs[:, :, 1] # angles and angular velocities splitted
         to_plot = np.array([xs1, xs2, us, Ts, Vs])
         a3 = general_multiplot_anim(to_plot, to, ['x1','x2','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
@@ -179,7 +167,7 @@ def test_mpc():
 
     INPUT_SIZE = int(16*OH)  # number of control inputs
 
-    OPT_ITERS = 200 #1000
+    OPT_ITERS = 300 #1000
     MIN_LR = 1e-6 # minimum learning rate
 
     lr = 1e-1 # learning rate for the gradient descent
