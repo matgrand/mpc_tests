@@ -42,17 +42,17 @@ def addittive_resample(iu, t):
         ou[i] = cumulated + iu[ii+1]*dti/dtc # linear interpolation
     return ou
 
-def frequency_resample(iu, t, max_freq=8): 
-    '''
-    input is defined as a sequence of additions to the first control input
-    Expand the control input to match the state vector
-    iu: input, t: simulation time, ne: number expanded control inputs
-    '''
-    nc, ne = len(iu), len(t) # number of compressed control inputs
-    et = np.linspace(0, t[-1], ne) # expanded time
-    freqs = -1 + np.logspace(0, np.log10(max_freq), nc-1) # frequencies
-    signal = np.sum([iu[i+1]*np.sin(2*π*freqs[i]*et+0.2*iu[0]) for i in range(nc-1)], axis=0) # add the sinusoids
-    return signal # add the first control input as an offset
+# def frequency_resample(iu, t, max_freq=8): 
+#     '''
+#     input is defined as a sequence of additions to the first control input
+#     Expand the control input to match the state vector
+#     iu: input, t: simulation time, ne: number expanded control inputs
+#     '''
+#     nc, ne = len(iu), len(t) # number of compressed control inputs
+#     et = np.linspace(0, t[-1], ne) # expanded time
+#     freqs = -1 + np.logspace(0, np.log10(max_freq), nc-1) # frequencies
+#     signal = np.sum([iu[i+1]*np.sin(2*π*freqs[i]*et+0.2*iu[0]) for i in range(nc-1)], axis=0) # add the sinusoids
+#     return signal # add the first control input as an offset
 
 # def frequency_resample(iu, t, max_freq=8): 
 #     '''
@@ -64,6 +64,20 @@ def frequency_resample(iu, t, max_freq=8):
 #     et = np.linspace(0, t[-1], ne) # expanded time
 #     freqs = -1 + np.logspace(0, np.log10(max_freq), nc) # frequencies
 #     return np.sum([iu[i]*np.sin(2*π*freqs[i-1]*et) for i in range(nc)], axis=0) # add the sinusoids
+
+def frequency_resample(iu, t, max_freq=8): 
+    '''
+    input is defined as a sequence of additions to the first control input
+    Expand the control input to match the state vector
+    iu: input, t: simulation time, ne: number expanded control inputs
+    '''
+    nc, ne = len(iu), len(t) # number of compressed control inputs
+    et = np.linspace(0, t[-1], ne) # expanded time
+    freqs = -1 + np.logspace(0, np.log10(max_freq), nc) # frequencies
+    s = np.sum([iu[i]*np.sin(2*π*freqs[i-1]*et) for i in range(0, nc, 2)], axis=0) # add the sinusoids
+    c = np.sum([iu[i]*np.cos(2*π*freqs[i-1]*et) for i in range(1, nc, 2)], axis=0) # add the cosinoids
+    return s + c
+
 
 if __name__  == '__main__':
     # test the resampling

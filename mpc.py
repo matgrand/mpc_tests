@@ -19,8 +19,9 @@ if SP: from single_pendulum import *
 elif DP: from double_pendulum import *
 elif CDP: from cart_double_pendulum import *
 
-CLIP = False # clip the control input
-INPUT_CLIP = 50 # clip the control input
+CLIP = True # clip the control input
+INPUT_CLIP = 5 # clip the control input
+MIN_IMPROVEMENT = 1e-6 # minimum improvement for the gradient descent
 
 # function to simulate a run
 def simulate(x0, t, eu):
@@ -34,13 +35,27 @@ def simulate(x0, t, eu):
 # cost function
 costs = [[],[],[]] # costs to plot later
 labels = ['T', 'V', 'u']
+# def cost(x, eu, u0, append=False):
+#     n = len(x) # number of time steps
+#     p = (np.mod(x[:,0]+π, 2*π)-π) / π # p is between -1 and 1
+#     wp = np.sqrt(np.abs(p)) # use position as a weight for T
+#     # wp = np.abs(p) # use position as a weight for T
+#     ve = -1 * potential_energy(x) # potential energy
+#     te = 1 * kinetic_energy(x) * wp # kinetic energy
+#     uc = 0.01 * eu**2 * wp # control input
+#     cc = 0.01 * (eu[0] - u0)**2 * n # continuity cost
+#     if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
+#     final_cost =  np.sum(te) + np.sum(ve) + np.sum(uc) + cc
+#     return final_cost / n
+
 def cost(x, eu, u0, append=False):
     n = len(x) # number of time steps
     p = (np.mod(x[:,0]+π, 2*π)-π) / π # p is between -1 and 1
     wp = np.sqrt(np.abs(p)) # use position as a weight for T
+    # wp = np.abs(p) # use position as a weight for T
     ve = -1 * potential_energy(x) # potential energy
     te = 1 * kinetic_energy(x) * wp # kinetic energy
-    uc = 0.001 * eu**2 * wp # control input
+    uc = 0.01 * eu**2 * wp # control input
     cc = 0.01 * (eu[0] - u0)**2 * n # continuity cost
     if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
     final_cost =  np.sum(te) + np.sum(ve) + np.sum(uc) + cc
@@ -65,7 +80,10 @@ def mpc_iter(x0, u0, t, lr, opt_iters, min_lr, input_size, app_cost=False):
         x0: initial state
         t: time steps 
     '''
+    #initialize input
     u = np.zeros(input_size) # control input
+    # u = 0.2*INPUT_CLIP*uniform(-1,1,input_size) # control input
+    # u = 0.2* x0[0]**2 * uniform(-1,1,input_size) # control input
     n = len(t) # number of time steps
     lri = lr # learning rate
     # first iteration
@@ -73,7 +91,6 @@ def mpc_iter(x0, u0, t, lr, opt_iters, min_lr, input_size, app_cost=False):
     if CLIP: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
     x = simulate(x0, t, eu) # simulate the pendulum
     J = cost(x, eu, u0, append=app_cost) # calculate the cost
-
     # debug: save the states and control inputs
     xs = np.zeros((opt_iters, n, 2)) # state
     us, Ts, Vs = (np.zeros((opt_iters, n)) for _ in range(3)) # input, kinetic and potential energy
@@ -87,11 +104,11 @@ def mpc_iter(x0, u0, t, lr, opt_iters, min_lr, input_size, app_cost=False):
         x = simulate(x0, t, eu)  # simulate the pendulum
         new_J = cost(x, eu, u0, append=app_cost) # calculate the cost
 
-        if new_J < J: # decreasing cost
+        if new_J < (J - MIN_IMPROVEMENT): # decreasing cost
             u, J = new_u, new_J # update the control input and cost 
-            lri *= 1.2 # increase the learning rate
+            lri *= 1.3 # increase the learning rate
         else: # increasing cost
-            lri *= 0.95 # decrease the learning rate
+            lri *= 0.9 # decrease the learning rate
             if lri < min_lr: 
                 xs[i:],us[i:],Ts[i:],Vs[i:]=xs[i-1],us[i-1],Ts[i-1],Vs[i-1]# save state + input
                 break # stop if the learning rate is too small
@@ -151,18 +168,18 @@ def test_mpc():
     if CDP: raise NotImplementedError('Cart double pendulum not implemented')
 
     # Time
-    T = 3 # simulation time
-    OH = 1 # optimization horizon of the MPC
+    T = 5 # simulation time
+    OH = 1.5 # optimization horizon of the MPC
     AH = .5 # action horizon of the MPC
     assert T % AH == 0 # for more readable code
 
     OPT_FREQ = 100 # frequency of the time steps optimization
-    SIM_FREQ = 10000 # frequency of the time steps simulation
+    SIM_FREQ = 1000 # frequency of the time steps simulation
     assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 
-    INPUT_SIZE = int(13*OH)  # number of control inputs
+    INPUT_SIZE = int(16*OH)  # number of control inputs
 
-    OPT_ITERS = 500 #1000
+    OPT_ITERS = 200 #1000
     MIN_LR = 1e-6 # minimum learning rate
 
     lr = 1e-1 # learning rate for the gradient descent
