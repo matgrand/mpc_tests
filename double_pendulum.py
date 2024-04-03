@@ -5,13 +5,13 @@ from plotting import animate_double_pendulum, plot_double
 import matplotlib.pyplot as plt
 
 ###################################################################################################################
-l1 = 1.1  # First arm
+l1 = 1  # First arm
 l2 = 1  # Second arm
 g = 9.81  # gravity
-μ1 = 0.8  # friction coefficient first joint
-μ2 = 0.8  # friction coefficient second joint
+μ1 = 0.2  # friction coefficient first joint
+μ2 = 0.2  # friction coefficient second joint
 m1 = 1  # mass of the first pendulum
-m2 = 1.1  # mass of the second pendulum
+m2 = 1  # mass of the second pendulum
 
 INPUT_CLIP = 50  # maximum control input
 
@@ -37,7 +37,9 @@ T2 = 1/2*m2*(dx2**2 + dy2**2) # kinetic energy of the second pendulum
 T = T1 + T2 # total kinetic energy
 
 # define the potential energy of the system
-V = m1*g*y1 + m2*g*y2 # total potential energy
+V1 = m1*g*y1 # potential energy of the first pendulum
+V2 = m2*g*y2 # potential energy of the second pendulum
+V = V1 + V2 # total potential energy
 
 # lagrangian
 L = T - V

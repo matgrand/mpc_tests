@@ -42,7 +42,7 @@ def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6), title='Pendulum'):
     plt.tight_layout()
     return anim
 
-def animate_double_pendulum(x, u, dt, l1, l2, fps=60, figsize=(6,6)):
+def animate_double_pendulum(x, u, dt, l1, l2, fps=60, figsize=(6,6), title='Double Pendulum'):
     # animate the system
     skip = max(int(1/fps/dt), 1)
     x, u = x[::skip], u[::skip]
