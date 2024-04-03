@@ -2,8 +2,8 @@ import numpy as np; π = np.pi
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from plotting import *
-from inputs import addittive_resample as expu
-# from inputs import frequency_resample as expu 
+# from inputs import addittive_resample as expu
+from inputs import frequency_resample as expu 
 from numpy.random import uniform
  
 SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
