@@ -8,7 +8,8 @@ from inputs import frequency_resample as expu
 from numpy.random import uniform
 from time import time
 import multiprocess as mp #note: not multiprocessing
- 
+import os
+np.random.seed(0)
  
 SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
@@ -26,12 +27,13 @@ elif CDP: from cart_double_pendulum import *
 CLIP = True # clip the control input
 INPUT_CLIP = 6 # clip the control input (if < 9.81, it needs the swing up)
 MIN_IMPROVEMENT = 1e-8 # minimum improvement for the gradient descent
+SGD = 1 # stochastic gradient descent percentage of the gradient
 
 # function to simulate a run
 def simulate(x0, t, eu):
     '''Simulate the pendulum'''
     n = len(t) # number of time steps
-    x = np.zeros((n, 2)) # [θ, dθ] -> state vector
+    x = np.zeros((n, len(x0))) # [θ, dθ] -> state vector
     x[0] = x0 # initial conditions
     for i in range(1, n): x[i] = step(x[i-1], eu[i], t[1]-t[0])   
     return x
@@ -87,7 +89,9 @@ def grad(p, u, x0, u0, t): # multiprocessing version
     c = cost(simulate(x0, t, eu), eu, u0) # calculate the cost
     g_u, g_x0, g_u0, g_t, g_p, g_c = u, x0, u0, t, p, c # set the global variables
     pool = mp.Pool(mp.cpu_count()) # create the pool
-    d = pool.map(grad_j, list(range(len(u)))) # calculate the gradient
+    # idxs = np.random.choice(len(u), int(SGD*len(u)), replace=False) # stochastic gradient descent
+    idxs = list(range(len(u))) # all the indices
+    d = pool.map(grad_j, idxs) # calculate the gradient
     pool.close(), pool.join()
     return np.array(list(d))
 
@@ -108,11 +112,13 @@ def mpc_iter(x0, u0, t, lr, opt_iters, min_lr, input_size, app_cost=False):
     x = simulate(x0, t, eu) # simulate the pendulum
     J = cost(x, eu, u0, append=app_cost) # calculate the cost
     # debug: save the states and control inputs
-    xs = np.zeros((opt_iters, n, 2)) # state
+    xs = np.zeros((opt_iters, n, len(x0))) # state
     us, Ts, Vs = (np.zeros((opt_iters, n)) for _ in range(3)) # input, kinetic and potential energy
     xs[0], us[0], Ts[0], Vs[0] = x, eu, kinetic_energy(x), potential_energy(x) # save state + input
 
     start_time = time()
+    # PATIENCE = 5 # patience for the learning rat
+    # improvements = np.ones(PATIENCE) # improvements of the last 10 iterations
     for i in range(1,opt_iters):
         Jgrad = grad(lri, u, x0, u0, t) # calculate the gradient
         new_u = u - Jgrad*lri # update the control input
@@ -120,8 +126,11 @@ def mpc_iter(x0, u0, t, lr, opt_iters, min_lr, input_size, app_cost=False):
         if CLIP: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP)
         x = simulate(x0, t, eu)  # simulate the pendulum
         new_J = cost(x, eu, u0, append=app_cost) # calculate the cost
-
-        if new_J < (J - MIN_IMPROVEMENT): # decreasing cost
+        # improvements[i%PATIENCE] = new_J - J # save the improvement
+        # if np.all(improvements < MIN_IMPROVEMENT): # stop if the improvement is too small
+        #     xs[i:],us[i:],Ts[i:],Vs[i:]=xs[i-1],us[i-1],Ts[i-1],Vs[i-1]
+        #     break
+        if new_J < (J-MIN_IMPROVEMENT):
             u, J = new_u, new_J # update the control input and cost 
             lri *= 1.3 # increase the learning rate
         else: # increasing cost
@@ -145,10 +154,11 @@ def test_1iter_mpc():
     if CDP: raise NotImplementedError('Cart double pendulum not implemented')
 
     # Time
-    T = 3 # simulation time
+    if SP: T = 3 # simulation time
+    if DP: T = 5 # simulation time
     to = np.linspace(0, T, int(T*100)) # time steps optimization
 
-    INPUT_SIZE = int(16*T)  # number of control inputs
+    INPUT_SIZE = int(8*T)  # number of control inputs
 
     OPT_ITERS = 400 #1000
     MIN_LR = 1e-6 # minimum learning rate
@@ -182,15 +192,19 @@ def test_1iter_mpc():
 def test_mpc():
     ''' Test the MPC'''
         #initial state: [angle, angular velocity]
-    if SP: x0 = np.array([π, 0]) + uniform(-.2,.2, 2) # [rad, rad/s] # SINGLE PENDULUM
-        
+    if SP: x0 = np.array([π-0.3, 0]) #+ uniform(-.2,.2, 2) # [rad, rad/s] # SINGLE PENDULUM
     if DP: x0 = np.array([0.1, 0.1, 0, 0]) # [rad, rad/s, rad, rad/s] # DOUBLE PENDULUM
     if CDP: raise NotImplementedError('Cart double pendulum not implemented')
 
     # Time
-    T = 5 # simulation time
-    OH = 1.5 # optimization horizon of the MPC
-    AH = .5 # action horizon of the MPC
+    if SP:
+        T = 5 # simulation time 5
+        OH = 1.5 # optimization horizon of the MPC 1.5
+        AH = .5 # action horizon of the MPC .5
+    if DP:
+        T = 5
+        OH = 2
+        AH = .5
     assert T % AH == 0 # for more readable code
 
     OPT_FREQ = 100 # frequency of the time steps optimization
@@ -202,7 +216,7 @@ def test_mpc():
     OPT_ITERS = 100 #300
     MIN_LR = 1e-6 # minimum learning rate
 
-    lr = 1e-1 # learning rate for the gradient descent
+    lr = 1 # learning rate for the gradient descent
 
     mpc_iters = int(T/AH) # number of MPC iterations
 
@@ -228,12 +242,11 @@ def test_mpc():
         xs, us, Ts, Vs = xs[:,:cr], us[:,:cr], Ts[:,:cr], Vs[:,:cr] # crop the results
         all_x.append(x), all_ts.append(tai), all_eu.append(eu) 
         u.append(ui), uss.append(us), xss.append(xs), Tss.append(Ts), Vss.append(Vs)
-        print(f'iteration: {i+1}/{mpc_iters} cost: {cost(x, eu, eu[0]):.4f} {" "*20}')
+        print(f'iteration: {i+1}/{mpc_iters} cost: {cost(x, eu, eu[0]):.4f} {" "*25}')
     
     #reassemble the results
     x, ts, eu = [np.concatenate(a) for a in [all_x, all_ts, all_eu]]
     xs, us, Ts, Vs = [np.concatenate(a, axis=1) for a in [xss, uss, Tss, Vss]]
-
 
     ##  PLOTTING
     to = np.linspace(0, T, int(T*OPT_FREQ)) # time steps optimization
@@ -250,13 +263,15 @@ def test_mpc():
 def single_free_evolution():
     ''' Show the free evolution of the single pendulum'''
     #initial state: [angle, angular velocity]
-    x0 = np.array([0.2, 0]) # [rad, rad/s] # SINGLE PENDULUM
+    if SP: x0 = np.array([0.2, 0]) # [rad, rad/s] # SINGLE PENDULUM
+    if DP: x0 = np.array([0.1, 0.1, 0, 0]) # [rad, rad/s, rad, rad/s] # DOUBLE PENDULUM
     # Time
     t = np.linspace(0, 20, 20*10000) # time steps
     eu = np.zeros(len(t)) # control input
     if CLIP: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
     x = simulate(x0, t, eu) # simulate the pendulum
-    sf11 = animate_pendulum(x, eu, t[1]-t[0], l, 60, (6,6))
+    if SP: sf11 = animate_pendulum(x, eu, t[1]-t[0], l, 60, (6,6))
+    if DP: sf11 = animate_double_pendulum(x, eu, t[1]-t[0], l1, l2, 60, (6,6))
     return sf11
 
 def plot_cost_function():
@@ -289,12 +304,13 @@ def plot_cost_function():
     return fig
 
 if __name__ == '__main__':
+    os.system('clear')
     main_start = time()
 
     # fcf = plot_cost_function()
     # sf = single_free_evolution()
-    a1, a2, a3 = test_1iter_mpc()
-    # a4, p5 = test_mpc()
+    # a1, a2, a3 = test_1iter_mpc()
+    a4, p5 = test_mpc()
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
     plt.show()
