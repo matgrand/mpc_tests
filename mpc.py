@@ -130,9 +130,9 @@ def mpc_iter(x0, u0, t, lr, opt_iters, min_lr, input_size, app_cost=False):
                 break # stop if the learning rate is too small
 
         xs[i], us[i], Ts[i], Vs[i] = x, eu, kinetic_energy(x), potential_energy(x)  # save state + input
-        if i%1 == 0: print(f'  {i}/{opt_iters} cost: {J:.2f}, lri: {lri:.1e}    ', end='\r')
+        if i%1 == 0: print(f'  {i}/{opt_iters} cost: {J:.4f}, lri: {lri:.1e}    ', end='\r')
         
-    print(f'                 cost: {J:.2f}, lri: {lri:.1e}    ', end='\r')
+    print(f'                 cost: {J:.4f}, lri: {lri:.1e}    ', end='\r')
     return u, xs, us, Ts, Vs
 
 xss, uss, Tss, Vss = [], [], [], [] # states and energies to plot later
@@ -166,16 +166,16 @@ def test_1iter_mpc():
     ##  PLOTTING
     # plot the state and energies
     if SP:
-        a2 = animate_costs(np.array(costs), labels=labels, figsize=(6,4), logscale=True)
+        a12 = animate_costs(np.array(costs), labels=labels, figsize=(6,4), logscale=True)
         xs1, xs2 = xs[:, :, 0], xs[:, :, 1] # angles and angular velocities splitted
         to_plot = np.array([xs1, xs2, us, Ts, Vs])
-        a3 = general_multiplot_anim(to_plot, to, ['x1','x2','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
-        ap1 = animate_pendulum(x, eu, t[1]-t[0], l, fps=60, figsize=(6,6), title='Pendulum')
+        a13 = general_multiplot_anim(to_plot, to, ['x1','x2','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
+        a1p1 = animate_pendulum(x, eu, t[1]-t[0], l, fps=60, figsize=(6,6), title='Pendulum')
     if DP:
-        a2 = animate_costs(np.array(costs), labels=labels, figsize=(6,4), logscale=True)
+        a12 = animate_costs(np.array(costs), labels=labels, figsize=(6,4), logscale=True)
         to_plot = np.array([xs[:,:,0], xs[:,:,1], xs[:,:,2], xs[:,:,3], us, Ts, Vs])
-        a3 = general_multiplot_anim(to_plot, to, ['x1','x2','x3','x4','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
-        ap1 = animate_double_pendulum(x, eu, t[1]-t[0], l1, l2, fps=60, figsize=(6,6), title='Double Pendulum')
+        a13 = general_multiplot_anim(to_plot, to, ['x1','x2','x3','x4','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
+        a1p1 = animate_double_pendulum(x, eu, t[1]-t[0], l1, l2, fps=60, figsize=(6,6), title='Double Pendulum')
 
 
 def test_mpc():
@@ -227,7 +227,7 @@ def test_mpc():
         xs, us, Ts, Vs = xs[:,:cr], us[:,:cr], Ts[:,:cr], Vs[:,:cr] # crop the results
         all_x.append(x), all_ts.append(tai), all_eu.append(eu) 
         u.append(ui), uss.append(us), xss.append(xs), Tss.append(Ts), Vss.append(Vs)
-        print(f'iteration: {i+1}/{mpc_iters} cost: {cost(x, eu, eu[0]):.2f}    ')
+        print(f'iteration: {i+1}/{mpc_iters} cost: {cost(x, eu, eu[0]):.4f} {" "*20}')
     
     #reassemble the results
     x, ts, eu = [np.concatenate(a) for a in [all_x, all_ts, all_eu]]
@@ -290,16 +290,16 @@ def plot_cost_function():
     ax.set_xlabel('angle')
     ax.set_ylabel('angular velocity')
     ax.set_zlabel('cost')
-    plt.show()
-
 
 if __name__ == '__main__':
     main_start = time()
 
-    # plot_cost_function()
+    plot_cost_function()
+    plt.show()
     # single_free_evolution()
     test_1iter_mpc()
-    # test_mpc()
+    plt.show()
+    test_mpc()
 
 
 
