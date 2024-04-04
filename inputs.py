@@ -74,6 +74,7 @@ def frequency_resample(iu, t, max_freq=8):
     '''
     nc, ne = len(iu), len(t) # number of compressed control inputs
     et = np.linspace(0, t[-1], ne) # expanded time
+    iu = iu * np.linspace(1, 0.7, nc) # decrease the amplitude of the sinusoids
     freqs = -1 + np.logspace(0, np.log10(max_freq), nc) # frequencies
     s = np.sum([iu[i]*np.cos(2*π*freqs[i-1]*et) for i in range(0, nc, 2)], axis=0) # add the sinusoids
     c = np.sum([iu[i]*np.sin(2*π*freqs[i-1]*et) for i in range(1, nc, 2)], axis=0) # add the cosinoids

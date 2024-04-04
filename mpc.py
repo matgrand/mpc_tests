@@ -15,6 +15,9 @@ SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
 M = SP
+OPT_FREQ = 60 # frequency of the time steps optimization
+SIM_FREQ = 240 # frequency of the time steps simulation
+assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 
 if M == SP: SP, DP, CDP = True, False, False
 elif M == DP: SP, DP, CDP = False, True, False
@@ -27,7 +30,7 @@ elif CDP: from cart_double_pendulum import *
 CLIP = True # clip the control input
 INPUT_CLIP = 6 # clip the control input (if < 9.81, it needs the swing up)
 MIN_IMPROVEMENT = 1e-8 # minimum improvement for the gradient descent
-SGD = 1 # stochastic gradient descent percentage of the gradient
+SGD = 0.6 # stochastic gradient descent percentage of the gradient
 
 # function to simulate a run
 def simulate(x0, t, eu):
@@ -89,11 +92,12 @@ def grad(p, u, x0, u0, t): # multiprocessing version
     c = cost(simulate(x0, t, eu), eu, u0) # calculate the cost
     g_u, g_x0, g_u0, g_t, g_p, g_c = u, x0, u0, t, p, c # set the global variables
     pool = mp.Pool(mp.cpu_count()) # create the pool
-    # idxs = np.random.choice(len(u), int(SGD*len(u)), replace=False) # stochastic gradient descent
-    idxs = list(range(len(u))) # all the indices
+    idxs = list(np.random.choice(len(u), int(SGD*len(u)), replace=False)) # stochastic gradient descent
     d = pool.map(grad_j, idxs) # calculate the gradient
     pool.close(), pool.join()
-    return np.array(list(d))
+    ret = np.zeros(len(u))
+    ret[idxs] = d
+    return ret
 
 def mpc_iter(x0, u0, t, lr, opt_iters, min_lr, input_size, app_cost=False):
     ''' Model Predictive Control
@@ -147,6 +151,7 @@ def mpc_iter(x0, u0, t, lr, opt_iters, min_lr, input_size, app_cost=False):
 
 xss, uss, Tss, Vss = [], [], [], [] # states and energies to plot later
 def test_1iter_mpc():
+    print('Running the MPC 1 iteration...')
     #initial state: [angle, angular velocity]
     if SP: x0 = np.array([0.2 + π 
                         , 2]) # [rad, rad/s] # SINGLE PENDULUM
@@ -156,11 +161,11 @@ def test_1iter_mpc():
     # Time
     if SP: T = 3 # simulation time
     if DP: T = 5 # simulation time
-    to = np.linspace(0, T, int(T*100)) # time steps optimization
+    to = np.linspace(0, T, int(T*OPT_FREQ)) # time steps optimization
 
-    INPUT_SIZE = int(8*T)  # number of control inputs
+    INPUT_SIZE = int(16*T)  # number of control inputs
 
-    OPT_ITERS = 400 #1000
+    OPT_ITERS = int(400 * (2-SGD)) #1000
     MIN_LR = 1e-6 # minimum learning rate
 
     lr = 1e-1 # learning rate for the gradient descent
@@ -169,7 +174,7 @@ def test_1iter_mpc():
     u, xs, us, Ts, Vs = mpc_iter(x0, 0, to, lr, OPT_ITERS, MIN_LR, INPUT_SIZE, app_cost=True) # run the MPC
 
     # SIMULATION 
-    t = np.linspace(0, T, int(T*100)) # time steps
+    t = np.linspace(0, T, int(T*SIM_FREQ)) # time steps
     eu = expu(u, t) # expand the control input
     if CLIP: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
     x = simulate(x0, t, eu) # simulate the pendulum
@@ -187,6 +192,7 @@ def test_1iter_mpc():
         to_plot = np.array([xs[:,:,0], xs[:,:,1], xs[:,:,2], xs[:,:,3], us, Ts, Vs])
         a13 = general_multiplot_anim(to_plot, to, ['x1','x2','x3','x4','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
         a1p1 = animate_double_pendulum(x, eu, t[1]-t[0], l1, l2, fps=60, figsize=(6,6), title='Double Pendulum')
+    print()
     return a12, a13, a1p1
 
 def test_mpc():
@@ -207,13 +213,9 @@ def test_mpc():
         AH = .5
     assert T % AH == 0 # for more readable code
 
-    OPT_FREQ = 60 # frequency of the time steps optimization
-    SIM_FREQ = 120 # frequency of the time steps simulation
-    assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
-
     INPUT_SIZE = int(16*OH)  # number of control inputs
 
-    OPT_ITERS = 100 #300
+    OPT_ITERS = int(150 * (2-SGD)) #300
     MIN_LR = 1e-6 # minimum learning rate
 
     lr = 1 # learning rate for the gradient descent
@@ -258,6 +260,7 @@ def test_mpc():
         to_plot = np.array([xs[:,:,0], xs[:,:,1], xs[:,:,2], xs[:,:,3], us, Ts, Vs])
         a3 = general_multiplot_anim(to_plot, to, ['x1','x2','x3','x4','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
         ap1 = animate_double_pendulum(x, eu, ts[1]-ts[0], l1, l2, fps=60, figsize=(6,6), title='Double Pendulum')
+    print()
     return a3, ap1
 
 def single_free_evolution():
@@ -309,7 +312,7 @@ if __name__ == '__main__':
 
     # fcf = plot_cost_function()
     # sf = single_free_evolution()
-    # a1, a2, a3 = test_1iter_mpc()
+    a1, a2, a3 = test_1iter_mpc()
     a4, p5 = test_mpc()
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
