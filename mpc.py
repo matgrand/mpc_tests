@@ -203,12 +203,12 @@ def test_mpc():
         AH = .5 # action horizon of the MPC .5
     if DP:
         T = 5
-        OH = 2
+        OH = 3
         AH = .5
     assert T % AH == 0 # for more readable code
 
-    OPT_FREQ = 100 # frequency of the time steps optimization
-    SIM_FREQ = 1000 # frequency of the time steps simulation
+    OPT_FREQ = 60 # frequency of the time steps optimization
+    SIM_FREQ = 120 # frequency of the time steps simulation
     assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 
     INPUT_SIZE = int(16*OH)  # number of control inputs
