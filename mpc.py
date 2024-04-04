@@ -24,7 +24,7 @@ elif DP: from double_pendulum import *
 elif CDP: from cart_double_pendulum import *
 
 CLIP = True # clip the control input
-INPUT_CLIP = 7 # clip the control input (if < 9.81, it needs the swing up)
+INPUT_CLIP = 6 # clip the control input (if < 9.81, it needs the swing up)
 MIN_IMPROVEMENT = 1e-8 # minimum improvement for the gradient descent
 
 # function to simulate a run
@@ -176,7 +176,7 @@ def test_1iter_mpc():
         to_plot = np.array([xs[:,:,0], xs[:,:,1], xs[:,:,2], xs[:,:,3], us, Ts, Vs])
         a13 = general_multiplot_anim(to_plot, to, ['x1','x2','x3','x4','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
         a1p1 = animate_double_pendulum(x, eu, t[1]-t[0], l1, l2, fps=60, figsize=(6,6), title='Double Pendulum')
-
+    return a12, a13, a1p1
 
 def test_mpc():
     ''' Test the MPC'''
@@ -198,7 +198,7 @@ def test_mpc():
 
     INPUT_SIZE = int(16*OH)  # number of control inputs
 
-    OPT_ITERS = 300 #1000
+    OPT_ITERS = 100 #300
     MIN_LR = 1e-6 # minimum learning rate
 
     lr = 1e-1 # learning rate for the gradient descent
@@ -244,6 +244,7 @@ def test_mpc():
         to_plot = np.array([xs[:,:,0], xs[:,:,1], xs[:,:,2], xs[:,:,3], us, Ts, Vs])
         a3 = general_multiplot_anim(to_plot, to, ['x1','x2','x3','x4','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
         ap1 = animate_double_pendulum(x, eu, ts[1]-ts[0], l1, l2, fps=60, figsize=(6,6), title='Double Pendulum')
+    return a3, ap1
 
 def single_free_evolution():
     ''' Show the free evolution of the single pendulum'''
@@ -254,10 +255,11 @@ def single_free_evolution():
     eu = np.zeros(len(t)) # control input
     if CLIP: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
     x = simulate(x0, t, eu) # simulate the pendulum
-    ap1 = animate_pendulum(x, eu, t[1]-t[0], l, 60, (6,6))
-    plt.show()
+    sf11 = animate_pendulum(x, eu, t[1]-t[0], l, 60, (6,6))
+    return sf11
 
 def plot_cost_function():
+    if not SP: return None # only for the single pendulum
     #create a 3d plot
     from matplotlib import cm
     fig = plt.figure()
@@ -275,33 +277,24 @@ def plot_cost_function():
         for j in range(N):
             p,v = xs[i], ys[j] # position and velocity
             xi = np.array([p,v]) # state vector
-            p = (np.mod(p + π, 2*π) - π)/π # p is between -1 and 1
-            wp = np.sqrt(np.abs(p))
-            # wp = np.abs(p)
-            wv = np.sqrt(np.abs(v))
-            # ve = -10 * (potential_energy(xi))
-            # te = 1 * kinetic_energy(xi)# * wp
-            ve = wp
-            te = wv
-            Z[j,i] = te + ve
+            c = cost(np.array([xi]), np.array([0]), 0)
+            Z[j,i] = c 
 
     #plot the cost function
     ax.plot_surface(X, Y, Z, cmap=cm.coolwarm)
     ax.set_xlabel('angle')
     ax.set_ylabel('angular velocity')
     ax.set_zlabel('cost')
+    return fig
 
 if __name__ == '__main__':
     main_start = time()
 
-    plot_cost_function()
-    plt.show()
-    # single_free_evolution()
-    test_1iter_mpc()
-    plt.show()
-    test_mpc()
-
-
+    # fcf = plot_cost_function()
+    # sf = single_free_evolution()
+    a1, a2, a3 = test_1iter_mpc()
+    a4, p5 = test_mpc()
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
     plt.show()
+    exit()
