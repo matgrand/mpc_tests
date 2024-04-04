@@ -112,6 +112,7 @@ def mpc_iter(x0, u0, t, lr, opt_iters, min_lr, input_size, app_cost=False):
     us, Ts, Vs = (np.zeros((opt_iters, n)) for _ in range(3)) # input, kinetic and potential energy
     xs[0], us[0], Ts[0], Vs[0] = x, eu, kinetic_energy(x), potential_energy(x) # save state + input
 
+    start_time = time()
     for i in range(1,opt_iters):
         Jgrad = grad(lri, u, x0, u0, t) # calculate the gradient
         new_u = u - Jgrad*lri # update the control input
@@ -130,7 +131,7 @@ def mpc_iter(x0, u0, t, lr, opt_iters, min_lr, input_size, app_cost=False):
                 break # stop if the learning rate is too small
 
         xs[i], us[i], Ts[i], Vs[i] = x, eu, kinetic_energy(x), potential_energy(x)  # save state + input
-        if i%1 == 0: print(f'  {i}/{opt_iters} cost: {J:.4f}, lri: {lri:.1e}    ', end='\r')
+        if i%1 == 0: print(f'  {i}/{opt_iters} cost: {J:.4f}, lri: {lri:.1e}, eta: {(time()-start_time)*(opt_iters-i)/i:.2f} s    ', end='\r')
         
     print(f'                 cost: {J:.4f}, lri: {lri:.1e}    ', end='\r')
     return u, xs, us, Ts, Vs
@@ -149,7 +150,7 @@ def test_1iter_mpc():
 
     INPUT_SIZE = int(16*T)  # number of control inputs
 
-    OPT_ITERS = 500 #1000
+    OPT_ITERS = 400 #1000
     MIN_LR = 1e-6 # minimum learning rate
 
     lr = 1e-1 # learning rate for the gradient descent
@@ -293,7 +294,7 @@ if __name__ == '__main__':
     # fcf = plot_cost_function()
     # sf = single_free_evolution()
     a1, a2, a3 = test_1iter_mpc()
-    a4, p5 = test_mpc()
+    # a4, p5 = test_mpc()
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
     plt.show()
