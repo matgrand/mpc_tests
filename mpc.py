@@ -15,8 +15,8 @@ SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
 M = SP
-OPT_FREQ = 60*10 # frequency of the time steps optimization
-SIM_FREQ = 240*10 # frequency of the time steps simulation
+OPT_FREQ = 60 # frequency of the time steps optimization
+SIM_FREQ = 240 # frequency of the time steps simulation
 assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 
 if M == SP: SP, DP, CDP = True, False, False
@@ -30,7 +30,7 @@ elif CDP: from cart_double_pendulum import *
 CLIP = True # clip the control input
 INPUT_CLIP = 6 # clip the control input (if < 9.81, it needs the swing up)
 MIN_IMPROVEMENT = 1e-8 # minimum improvement for the gradient descent
-SGD = 0.6 # stochastic gradient descent percentage of the gradient
+SGD = 0.75 # stochastic gradient descent percentage of the gradient
 
 # function to simulate a run
 def simulate(x0, t, eu):
@@ -50,8 +50,9 @@ if SP:
         p = (np.mod(x[:,0]+π, 2*π)-π) / π # p is between -1 and 1
         wp = np.sqrt(np.abs(p)) # use position as a weight for T
         # wp = np.abs(p) # use position as a weight for T
-        ve = -1 * potential_energy(x) # potential energy
-        te = 1 * kinetic_energy(x) * wp # kinetic energy
+        # tw = np.linspace(0, 1, n)**2 # time weight
+        ve = -1 * potential_energy(x) #* tw # potential energy
+        te = 1 * kinetic_energy(x) * wp #* tw # kinetic energy
         uc = 0*0.01 * eu**2 * wp # control input
         cc = 0.1 * (eu[0] - u0)**2 * n # continuity cost
         if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
@@ -91,7 +92,7 @@ def grad(p, u, x0, u0, t): # multiprocessing version
     if CLIP: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
     c = cost(simulate(x0, t, eu), eu, u0) # calculate the cost
     g_u, g_x0, g_u0, g_t, g_p, g_c = u, x0, u0, t, p, c # set the global variables
-    pool = mp.Pool(mp.cpu_count()) # create the pool
+    pool = mp.Pool() # create the pool
     idxs = list(np.random.choice(len(u), int(SGD*len(u)), replace=False)) # stochastic gradient descent
     d = pool.map(grad_j, idxs) # calculate the gradient
     pool.close(), pool.join()
@@ -163,9 +164,9 @@ def test_1iter_mpc():
     if DP: T = 5 # simulation time
     to = np.linspace(0, T, int(T*OPT_FREQ)) # time steps optimization
 
-    INPUT_SIZE = int(64*T)  # number of control inputs
+    INPUT_SIZE = int(16*T)  # number of control inputs
 
-    OPT_ITERS = int(1000 * (2-SGD)) #1000
+    OPT_ITERS = int(500 * (2-SGD)) #1000
     MIN_LR = 1e-6 # minimum learning rate
 
     lr = 1e-1 # learning rate for the gradient descent
@@ -215,7 +216,7 @@ def test_mpc():
 
     INPUT_SIZE = int(16*OH)  # number of control inputs
 
-    OPT_ITERS = int(300 * (2-SGD)) #150
+    OPT_ITERS = int(100 * (2-SGD)) #150
     MIN_LR = 1e-6 # minimum learning rate
 
     lr = 1 # learning rate for the gradient descent
@@ -312,7 +313,7 @@ if __name__ == '__main__':
 
     # fcf = plot_cost_function()
     # sf = single_free_evolution()
-    a1, a2, a3 = test_1iter_mpc()
+    # a1, a2, a3 = test_1iter_mpc()
     a4, p5 = test_mpc()
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
