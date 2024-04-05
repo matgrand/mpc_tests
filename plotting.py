@@ -81,7 +81,6 @@ def animate_double_pendulum(x, u, dt, l1, l2, fps=60, figsize=(6,6), title='Doub
     plt.tight_layout()
     return anim
 
-
 def animate_cart_double(x, u, dt, l1, l2, fps=60, figsize=(6,6)):
     # animate the system
     skip = max(int(1/fps/dt), 1)
@@ -202,7 +201,6 @@ def general_multiplot_anim(x, t=None, labels=None, fps=20.0, anim_time=10.0, fig
     plt.tight_layout()
     return anim
 
-
 def plot_single(x, t, u, T, V, figsize=(12,10)):
     # plot the state and energies
     fig, ax = plt.subplots(4, 1, figsize=figsize) #figsize=(18,12))
@@ -221,8 +219,6 @@ def plot_single(x, t, u, T, V, figsize=(12,10)):
     ax[3].set_ylabel('Control input')
     ax[0].grid(True), ax[1].grid(True), ax[3].grid(True)
     plt.tight_layout()
-
-
 
 def plot_double(x, t, u, T, V, figsize=(12,10)):
     # plot the state and energies
