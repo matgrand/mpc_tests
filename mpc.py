@@ -15,8 +15,8 @@ SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
 M = SP
-OPT_FREQ = 60 # frequency of the time steps optimization
-SIM_FREQ = 240 # frequency of the time steps simulation
+OPT_FREQ = 60*10 # frequency of the time steps optimization
+SIM_FREQ = 240*10 # frequency of the time steps simulation
 assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 
 if M == SP: SP, DP, CDP = True, False, False
@@ -163,9 +163,9 @@ def test_1iter_mpc():
     if DP: T = 5 # simulation time
     to = np.linspace(0, T, int(T*OPT_FREQ)) # time steps optimization
 
-    INPUT_SIZE = int(16*T)  # number of control inputs
+    INPUT_SIZE = int(64*T)  # number of control inputs
 
-    OPT_ITERS = int(400 * (2-SGD)) #1000
+    OPT_ITERS = int(1000 * (2-SGD)) #1000
     MIN_LR = 1e-6 # minimum learning rate
 
     lr = 1e-1 # learning rate for the gradient descent
@@ -215,7 +215,7 @@ def test_mpc():
 
     INPUT_SIZE = int(16*OH)  # number of control inputs
 
-    OPT_ITERS = int(150 * (2-SGD)) #300
+    OPT_ITERS = int(300 * (2-SGD)) #150
     MIN_LR = 1e-6 # minimum learning rate
 
     lr = 1 # learning rate for the gradient descent
