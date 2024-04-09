@@ -8,7 +8,7 @@ C = (155/255,0,20/255) # unipd RGB
 
 def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6), title='Pendulum'):
     # animate the system
-    skip = max(int(1/fps/dt), 1)
+    skip = max(int(1/fps/np.abs(dt)), 1)
     x, u = x[::skip], u[::skip]
     sw = int(WAIT_S*fps) # sample to wait for
     x = np.concatenate([np.array([x[0]]*sw), x, np.array([x[-1]]*sw)]) if WAIT_S > 0 else x
@@ -42,9 +42,51 @@ def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6), title='Pendulum'):
     plt.tight_layout()
     return anim
 
+def animate_pendulums(xs, us, dt, l, fps=60, figsize=(6,6), title='Pendulums'):
+    #create a new figure
+    npe = len(xs) # number of pendulums
+    fig, ax = plt.subplots(figsize=figsize)
+    lim = 1.1*l
+    ax.set_xlim(-lim, lim), ax.set_ylim(-lim, lim)
+    ax.set_aspect('equal')
+    ax.grid(True)
+    ax.set_title(title)
+    lines = [ax.plot([], [], 'o-', lw=3, color='blue')[0] for _ in range(npe)]
+    inputs = [ax.plot([], [], '-', lw=2, color=C)[0] for _ in range(npe)]
+    time_template = 'time = %.1fs'
+    time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
+    new_xs, new_us = [], []
+    for j in range(npe):
+        # animate the system
+        skip = max(int(1/fps/np.abs(dt)), 1)
+        x, u = xs[j,::skip], us[j,::skip]
+        sw = int(WAIT_S*fps)
+        x = np.concatenate([np.array([x[0]]*sw), x, np.array([x[-1]]*sw)]) if WAIT_S > 0 else x
+        u = np.concatenate([np.array([u[0]]*sw), u, np.array([u[-1]]*sw)]) if WAIT_S > 0 else u
+        maxu = max(np.max(np.abs(u)), 1e-3)
+        u = l*u/maxu
+        new_xs.append(x), new_us.append(u)
+    def init():
+        for j in range(npe):
+            lines[j].set_data([], [])
+            inputs[j].set_data([], [])
+        time_text.set_text('')
+        return lines + inputs + [time_text]
+    def animate(i):
+        for j in range(npe):
+            x, u = new_xs[j], new_us[j]
+            xi, yi = l*np.sin(x[i,0]), l*np.cos(x[i,0])
+            lines[j].set_data([0, xi], [0, yi])
+            inputs[j].set_data([0, u[i]], [-0.95*lim, -0.95*lim])
+        time_text.set_text(time_template % (-WAIT_S+i/fps))
+        return lines + inputs + [time_text]
+    anim = animation.FuncAnimation(fig, animate, range(0, len(x)), init_func=init, blit=True, interval=INTERVAL/fps)
+    plt.tight_layout()
+    return anim
+
 def animate_double_pendulum(x, u, dt, l1, l2, fps=60, figsize=(6,6), title='Double Pendulum'):
     # animate the system
-    skip = max(int(1/fps/dt), 1)
+    skip = max(int(1/fps/np.abs(dt)), 1)
     x, u = x[::skip], u[::skip]
     sw = int(WAIT_S*fps) # sample to wait for
     x = np.concatenate([np.array([x[0]]*sw), x, np.array([x[-1]]*sw)]) if WAIT_S > 0 else x
@@ -81,9 +123,55 @@ def animate_double_pendulum(x, u, dt, l1, l2, fps=60, figsize=(6,6), title='Doub
     plt.tight_layout()
     return anim
 
+def animate_double_pendulums(xs, us, dt, l1, l2, fps=60, figsize=(6,6), title='Double Pendulums'):
+    #create a new figure
+    npe = len(xs) # number of pendulums
+    fig, ax = plt.subplots(figsize=figsize)
+    lim = 1.1*(l1+l2)
+    ax.set_xlim(-lim, lim), ax.set_ylim(-lim, lim)
+    ax.set_aspect('equal')
+    ax.grid(True)
+    ax.set_title(title)
+    lines1 = [ax.plot([], [], 'o-', lw=3, color='blue')[0] for _ in range(npe)]
+    lines2 = [ax.plot([], [], 'o-', lw=3, color='red')[0] for _ in range(npe)]
+    inputs = [ax.plot([], [], '-', lw=2, color=C)[0] for _ in range(npe)]
+    time_template = 'time = %.1fs'
+    time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
+    new_xs, new_us = [], []
+    for j in range(npe):
+        # animate the system
+        skip = max(int(1/fps/np.abs(dt)), 1)
+        x, u = xs[j,::skip], us[j,::skip]
+        sw = int(WAIT_S*fps)
+        x = np.concatenate([np.array([x[0]]*sw), x, np.array([x[-1]]*sw)]) if WAIT_S > 0 else x
+        u = np.concatenate([np.array([u[0]]*sw), u, np.array([u[-1]]*sw)]) if WAIT_S > 0 else u
+        maxu = max(np.max(np.abs(u)), 1e-3)
+        u = (l1+l2)*u/maxu # scale the control input
+        new_xs.append(x), new_us.append(u)
+    def init():
+        for j in range(npe):
+            lines1[j].set_data([], [])
+            lines2[j].set_data([], [])
+            inputs[j].set_data([], [])
+        time_text.set_text('')
+        return lines1 + lines2 + inputs + [time_text]
+    def animate(i):
+        for j in range(npe):
+            x, u = new_xs[j], new_us[j]
+            x1, y1 = l1*np.sin(x[i,0]), l1*np.cos(x[i,0])
+            x2, y2 = x1 + l2*np.sin(x[i,1]), y1 + l2*np.cos(x[i,1])
+            lines1[j].set_data([0, x1], [0, y1])
+            lines2[j].set_data([x1, x2], [y1, y2])
+            inputs[j].set_data([0, u[i]], [-0.95*lim, -0.95*lim])
+        time_text.set_text(time_template % (-WAIT_S+i/fps))
+        return lines1 + lines2 + inputs + [time_text]
+    anim = animation.FuncAnimation(fig, animate, range(0, len(x)), init_func=init, blit=True, interval=INTERVAL/fps)
+    plt.tight_layout()
+    return anim
+
 def animate_cart_double(x, u, dt, l1, l2, fps=60, figsize=(6,6)):
     # animate the system
-    skip = max(int(1/fps/dt), 1)
+    skip = max(int(1/fps/np.abs(dt)), 1)
     x, u = x[::skip], u[::skip]
     sw = int(WAIT_S*fps) # sample to wait for
     x = np.concatenate([np.array([x[0]]*sw), x, np.array([x[-1]]*sw)]) if WAIT_S > 0 else x

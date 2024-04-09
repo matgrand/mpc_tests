@@ -9,20 +9,19 @@ from numpy.random import uniform, normal
 from time import time
 import multiprocess as mp #note: not multiprocessing
 import os
-np.random.seed(0)
+# np.random.seed(0)
  
 SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
-M = SP
+M = DP
 OPT_FREQ = 1*60 # frequency of the time steps optimization
 SIM_FREQ = 1*OPT_FREQ # frequency of the time steps simulation
 assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 CLIP = True # clip the control input
 INPUT_CLIP = 6 # clip the control input (if < 9.81, it needs the swing up)
 MIN_IMPROVEMENT = 1e-8 # minimum improvement for the gradient descent
-SGD = .2 # stochastic gradient descent percentage of the gradient
-
+SGD = .1 # stochastic gradient descent percentage of the gradient
 
 if M == SP: SP, DP, CDP = True, False, False
 elif M == DP: SP, DP, CDP = False, True, False
@@ -34,10 +33,10 @@ elif CDP: from cart_double_pendulum import *
 # function to simulate a run
 def simulate(x0, t, eu):
     '''Simulate the pendulum'''
-    n = len(t) # number of time steps
-    x = np.zeros((n, len(x0))) # [θ, dθ] -> state vector
+    n, m, dt = len(t), len(x0), t[1]-t[0] # number of time steps, control inputs, time step
+    x = np.zeros((n, m)) # [θ, dθ, ...] -> state vector
     x[0] = x0 # initial conditions
-    for i in range(1, n): x[i] = step(x[i-1], eu[i], t[1]-t[0])   
+    for i in range(1, n): x[i] = step(x[i-1], eu[i], dt)   
     return x
 
 # cost function
@@ -50,9 +49,9 @@ if SP:
         p = x[:,0] / π # p is between -1 and 1
         wp = np.sqrt(np.abs(p)) # use position as a weight for T
         # wp = np.abs(p) # use position as a weight for T
-        # tw = np.linspace(0, 1, n)**2 # time weight
-        ve = -1 * potential_energy(x) #* tw # potential energy
-        te = 1 * kinetic_energy(x) * wp #* tw # kinetic energy
+        tw = np.linspace(0, 1, n)#**2 # time weight
+        ve = -1 * potential_energy(x) * tw # potential energy
+        te = 1 * kinetic_energy(x) * wp * tw # kinetic energy
         uc = 0*0.01 * eu**2 * wp # control input
         cc = 0.1 * (eu[0] - u0)**2 * n # continuity cost
         if append: costs[0].append(te), costs[1].append(ve), costs[2].append(uc)
@@ -164,8 +163,7 @@ xss, uss, Tss, Vss = [], [], [], [] # states and energies to plot later
 def test_1iter_mpc():
     print('Running the MPC 1 iteration...')
     #initial state: [angle, angular velocity]
-    if SP: x0 = np.array([0.2 + π 
-                        , 2]) # [rad, rad/s] # SINGLE PENDULUM
+    if SP: x0 = np.array([π+0.1,2]) # [π+0.1,2] # [rad, rad/s] # SINGLE PENDULUM
     if DP: x0 = np.array([0.01 + π
                           ,-0.01 + π
                           ,0, 0]) # [rad, rad/s, rad, rad/s] # DOUBLE PENDULUM
@@ -176,13 +174,13 @@ def test_1iter_mpc():
     if DP: T = 3 # simulation time
     to = np.linspace(0, T, int(T*OPT_FREQ)) # time steps optimization
 
-    if SP: INPUT_SIZE = int(16*T)  # number of control inputs
+    if SP: INPUT_SIZE = int(8*T)  # number of control inputs
     if DP: INPUT_SIZE = int(16*T)  # number of control inputs
 
     OPT_ITERS = int(500 * (2-SGD)) #1000
     MIN_LR = 1e-10 # minimum learning rate
 
-    lr = 1e-1 # learning rate for the gradient descent
+    lr = 1e2 # learning rate for the gradient descent
 
     ## RUN THE MPC
     u, xs, us, Ts, Vs = mpc_iter(x0, 0, to, lr, OPT_ITERS, MIN_LR, INPUT_SIZE, app_cost=True) # run the MPC
@@ -284,16 +282,72 @@ def test_mpc():
 def single_free_evolution():
     ''' Show the free evolution of the single pendulum'''
     #initial state: [angle, angular velocity]
-    if SP: x0 = np.array([0.2, 0]) # [rad, rad/s] # SINGLE PENDULUM
+    if SP: x0 = np.array([0.2, .1]) # [rad, rad/s] # SINGLE PENDULUM
     if DP: x0 = np.array([0.1, 0.1, 0, 0]) # [rad, rad/s, rad, rad/s] # DOUBLE PENDULUM
     # Time
-    t = np.linspace(0, 20, 20*10000) # time steps
-    eu = np.zeros(len(t)) # control input
-    if CLIP: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
+    T = 4 # simulation time
+    f = 600 # frequency of the time steps
+
+    t = np.linspace(0, T, int(T*f)) # time steps
+    dt = t[1]-t[0] # time step
+    print(f'T: {T}, f: {f}, dt: {dt:.4f}')
+
+    sf11, sf12, sf13, sf14 = None, None, None, None
+    eu = 0 + np.zeros(len(t)) # control input
+    
     x = simulate(x0, t, eu) # simulate the pendulum
-    if SP: sf11 = animate_pendulum(x, eu, t[1]-t[0], l, 60, (6,6))
-    if DP: sf11 = animate_double_pendulum(x, eu, t[1]-t[0], l1, l2, 60, (6,6))
-    return sf11
+
+    tr = t[::-1] # reverse the time steps
+    xr0 = x[-1] # final state
+    xr = simulate(xr0, tr, eu) # reverse simulate the pendulum
+    xrr = xr[::-1] # reverse the reverse simulation
+
+    # XS, US = np.array([x,xrr]), np.array([eu,eu]) # states and control inputs
+    # if SP: sf14 = animate_pendulums(XS,US,dt,l,60,(6,6))
+    # if DP: sf14 = animate_double_pendulums(XS,US,dt,l1,l2,60,(6,6))
+
+    # multiple reverse simulations from instability point
+    NS = 50 # number of simulations
+    x0s = np.zeros_like(xr0) + normal(0, 0.001, (NS, len(xr0))) # initial states
+    xrs = np.zeros((NS, len(tr), len(xr0))) # reverse states
+    for i in tqdm(range(NS)): xrs[i] = simulate(x0s[i], tr, eu) # reverse simulate the pendulums
+    Trs = np.array([kinetic_energy(x) for x in xrs]) # kinetic energy
+    Vrs = np.array([potential_energy(x) for x in xrs]) # potential energy
+    TVrs = Trs + Vrs # total energy
+
+    x0sr = xrs[:,-1] # final states
+    xrrs = np.zeros_like(xrs) # reverse reverse states
+    for i in tqdm(range(NS)): xrrs[i] = simulate(x0sr[i], t, eu) # reverse reverse simulate the pendulums
+    Trrs = np.array([kinetic_energy(x) for x in xrrs]) # kinetic energy
+    Vrrs = np.array([potential_energy(x) for x in xrrs]) # potential energy
+    TVrrs = Trrs + Vrrs # total energy
+
+    #plot the kinetic and potential energies
+    fig, ax = plt.subplots(3,2, figsize=(10,8))
+    ax[0,0].plot(tr, Trs.T, alpha=0.5)
+    ax[0,1].plot(t, Trrs.T, alpha=0.5)
+    ax[0,0].set_title('Kinetic Energy')
+    ax[1,0].plot(tr, Vrs.T, alpha=0.5)
+    ax[1,1].plot(t, Vrrs.T, alpha=0.5)
+    ax[1,0].set_title('Potential Energy')
+    ax[2,0].plot(tr, TVrs.T, alpha=0.5)
+    ax[2,1].plot(t, TVrrs.T, alpha=0.5)
+    ax[2,0].set_title('Total Energy')
+
+    xrsr = xrs[:,::-1] # reverse the reverse simulations
+    XS, US = xrsr, np.zeros((NS, len(tr))) # states and control inputs
+    if SP: sf13 = animate_pendulums(XS,US,dt,l,60,(6,6))
+    if DP: sf13 = animate_double_pendulums(XS,US,dt,l1,l2,60,(6,6))
+
+    XS = xrrs # states
+    if SP: sf12 = animate_pendulums(XS,US,dt,l,60,(6,6))
+    if DP: sf12 = animate_double_pendulums(XS,US,dt,l1,l2,60,(6,6))
+
+    return sf11, sf12, sf13, sf14
+
+
+
+    # return sf11
 
 def plot_cost_function():
     #create a 3d plot
@@ -323,14 +377,40 @@ def plot_cost_function():
     ax.set_zlabel('cost')
     return fig
 
+def create_Q_function():
+    XGRID = 50 # number of grid points for each axis
+    UGRID = 50 # number of grid points for each axis
+    MAXΩ = 10 # [rad/s] maximum angular velocity
+    if SP: XMAX, XMIN = np.array([π, MAXΩ]), np.array([-π, -MAXΩ])
+    if DP: XMAX, XMIN = np.array([π, π, MAXΩ, MAXΩ]), np.array([-π, -π, -MAXΩ, -MAXΩ])
+
+    us = np.linspace(-INPUT_CLIP, INPUT_CLIP, UGRID) # control inputs   
+    Xs = np.array([np.linspace(XMIN[i], XMAX[i], XGRID) for i in range(len(XMAX))])
+    Q = np.zeros_like(Xs) # Q value function
+
+    print(f'Q shape: {Q.shape}, Xs shape: {Xs.shape}, us shape: {us.shape}')
+    
+
+
+
+
+
+
+    exit()
+
+
+
+
+
 if __name__ == '__main__':
     os.system('clear')
     main_start = time()
 
-    fcf = plot_cost_function()
-    # sf = single_free_evolution()
-    a1, a2, a3, a4 = test_1iter_mpc()
-    # a5, p6 = test_mpc()
+    # pc = plot_cost_function()
+    sf = single_free_evolution()
+    # t1 = test_1iter_mpc()
+    # tm = test_mpc()
+    # q = create_Q_function()
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
     plt.show()

@@ -5,7 +5,7 @@ import sympy as sp
 g = 9.81 # [m/s^2] gravity
 l = 1 # [m] length of the pendulum
 m = 1 # [kg] mass of the pendulum
-μ = 0.2 # [kg/s] damping coefficient
+μ = 0.0 # [kg/s] damping coefficient
 
 # calculate the dynamics using symbolic math
 t = sp.symbols('t')
@@ -37,13 +37,28 @@ def potential_energy(x): return fV(*x.T)
 
 del t, θ, dθ, leq, T, V, L, x, y, u # delete the symbolic variables
 
-def step(x, u, dt): 
+def eluer_step(x, u, dt): 
     '''Integrate the differential equation using the Euler method'''
     θ, dθ = x # split the state vector
     dθ = dθ + fddθ(θ, dθ, u)[0]*dt # integrate the acceleration
     θ = θ + dθ*dt # integrate the velocity
     return np.array([θ, dθ]) # new state vector
 
+def symplectic_step(x, u, dt): 
+    raise NotImplementedError('This function is not implemented yet')
+    '''Integrate the differential equation using the symplectic Euler method'''
+    me = kinetic_energy(x) + potential_energy(x) 
+    θ, dθ = x # split the state vector
+    dθ = dθ + fddθ(θ, dθ, u)[0]*dt # integrate the acceleration
+    θ = θ + dθ*dt # integrate the velocity
+    nx = np.array([θ, dθ]) # new state vector
+    nme = kinetic_energy(nx) + potential_energy(nx)
+    Δdθ = -np.abs((nme - me)/me)*np.abs(dθ)*np.sign(dθ)*0.1
+    dθ = dθ + Δdθ
+    return np.array([θ, dθ]) # new state vector
+
+# def step(x, u, dt): return symplectic_step(x, u, dt)
+def step(x, u, dt): return eluer_step(x, u, dt)
 
 if __name__ == '__main__':
 

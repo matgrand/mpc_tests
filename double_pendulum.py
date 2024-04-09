@@ -8,12 +8,10 @@ import matplotlib.pyplot as plt
 l1 = 1  # First arm
 l2 = 1  # Second arm
 g = 9.81  # gravity
-μ1 = 0.2  # friction coefficient first joint
-μ2 = 0.2  # friction coefficient second joint
+μ1 = 0 #.7  # friction coefficient first joint
+μ2 = 0 #.7  # friction coefficient second joint
 m1 = 1  # mass of the first pendulum
 m2 = 1  # mass of the second pendulum
-
-INPUT_CLIP = 50  # maximum control input
 
 # use lagrangian mechanics to derive the equations of motion
 # define the symbolic variables
@@ -67,48 +65,32 @@ del t, θ1, θ2, u, dθ1, dθ2, x1, y1, x2, y2, T1, T2, T, V, L, LEQθ1, LEQθ2,
 
 
 ###################################################################################################################
-def step(x, u, dt):
+
+## Euler integration
+# SATURATE_VELOCITIES = 1e3
+def euler_step(x, u, dt):
     '''Integrate the differential equation using the Euler method'''
     x, dx = x[:2], x[2:] # split the state vector into position and velocity
+    # dx = np.clip(dx, -SATURATE_VELOCITIES, SATURATE_VELOCITIES) # saturate the velocities
     dx = dx + np.array(f(*x, *dx, u))*dt # compute the new velocity
     x = x + dx*dt # compute the new position
     return np.concatenate([x, dx]) # return the new state vector
 
-#simulate a run
-def simulate(x0, simT, dt, eu, clip=True):
-    '''Simulate the pendulum'''
-    n = int(simT/dt) # number of time steps
-    t = np.linspace(0, simT, n) # time vector
-    x = np.zeros((n, 4)) # [θ1, θ2, dθ1, dθ2] -> state vector
-    if clip: eu = np.clip(eu, -INPUT_CLIP, INPUT_CLIP) # clip the control input
-    x[0] = x0 # initial conditions
-    for i in range(1, n): x[i] = step(x[i-1], eu[i], dt) # integrate the differential equation
-    return x, t, eu
+## Symplectic Euler integration
+def symplectic_step(x, u, dt): # NOTE: THIS IS COMPLETELY WRONG
+    raise NotImplementedError('This is not the correct symplectic Euler method')
+    '''Integrate the differential equation using the symplectic Euler method'''
+    ke = kinetic_energy(x)
+    x, dx = x[:2], x[2:] # split the state vector into position and velocity
+    dx = dx + np.array(f(*x, *dx, u))*dt # compute the new velocity
+    x = x + dx*dt # compute the new position
+    nx = np.concatenate([x, dx]) # new state vector
+    nke = kinetic_energy(nx) # new kinetic energy
+    v0, v1 = nx[2], nx[3] # new velocities
+    # correct the velocities
+    dke = nke - ke # change in kinetic energy
+    v0, v1 = v0*np.sqrt(1+dke/nke), v1*np.sqrt(1+dke/nke) # correct the velocities
+    return np.array([x[0], x[1], v0, v1]) # return the new state vector
 
 
-
-if __name__  == '__main__':
-    x0 = np.array([π/2, π/2, 0, 0]) # initial conditions
-    simT = 10 # simulation time
-    dt = 1e-2 # time step
-    u = np.zeros(int(simT/dt)) # control input
-    # u[:int(simT/dt)//2] = 10 # control input
-    # u[int(simT/dt)//2:] = -10 # control input
-
-    # Simulate the pendulum
-    x,t,eu = simulate(x0, simT, dt, u) # simulate the pendulum
-
-    J = np.sum(kinetic_energy(x) + potential_energy(x)) # calculate the cost
-    print(f'cost: {J:.2f}')
-
-    # calculate the energies
-    T = kinetic_energy(x) # kinetic energy
-    V = potential_energy(x) # potential energy
-
-    # plot the state and energies
-    plot_double(x, t, eu, T, V, figsize=(12,10))
-
-    # animate the pendulum
-    a1 = animate_double_pendulum(x, eu, dt, l1, l2, figsize=(4,4))
-
-    plt.show()
+def step(x, u, dt): return euler_step(x, u, dt)
