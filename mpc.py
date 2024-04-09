@@ -1,6 +1,7 @@
 
 import numpy as np; π = np.pi
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from tqdm import tqdm
 from plotting import *
 # from inputs import addittive_resample as expu
@@ -9,19 +10,20 @@ from numpy.random import uniform, normal
 from time import time
 import multiprocess as mp #note: not multiprocessing
 import os
+# os.environ['KMP_DUPLICATE_LIB_OK']='True' # for the multiprocessing to work on MacOS
 # np.random.seed(0)
  
 SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
-M = DP
+M = SP
 OPT_FREQ = 1*60 # frequency of the time steps optimization
 SIM_FREQ = 1*OPT_FREQ # frequency of the time steps simulation
 assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 CLIP = True # clip the control input
 INPUT_CLIP = 6 # clip the control input (if < 9.81, it needs the swing up)
 MIN_IMPROVEMENT = 1e-8 # minimum improvement for the gradient descent
-SGD = .1 # stochastic gradient descent percentage of the gradient
+SGD = .5 # stochastic gradient descent percentage of the gradient
 
 if M == SP: SP, DP, CDP = True, False, False
 elif M == DP: SP, DP, CDP = False, True, False
@@ -378,25 +380,87 @@ def plot_cost_function():
     return fig
 
 def create_Q_function():
-    XGRID = 50 # number of grid points for each axis
-    UGRID = 50 # number of grid points for each axis
-    MAXΩ = 10 # [rad/s] maximum angular velocity
+    XGRID = 41 # number of grid points for the states
+    UGRID = 20 # number of grid points for the control inputs
+    MAXΩ = 3 # [rad/s] maximum angular velocity
     if SP: XMAX, XMIN = np.array([π, MAXΩ]), np.array([-π, -MAXΩ])
     if DP: XMAX, XMIN = np.array([π, π, MAXΩ, MAXΩ]), np.array([-π, -π, -MAXΩ, -MAXΩ])
+    n = len(XMAX) # number of states 
+    GP = XGRID**n # number of grid points
+    MAX_DEPTH = 200 # maximum depth of the tree
+    dt = - 1 / OPT_FREQ # time step
 
+    Xs = np.array([np.linspace(XMIN[i], XMAX[i], XGRID) for i in range(n)]) # grid points
+    distX = np.array([(Xs[i,1]-Xs[i,0])/2 for i in range(n)]) # distance between grid points
     us = np.linspace(-INPUT_CLIP, INPUT_CLIP, UGRID) # control inputs   
-    Xs = np.array([np.linspace(XMIN[i], XMAX[i], XGRID) for i in range(len(XMAX))])
-    Q = np.zeros_like(Xs) # Q value function
+    Q = np.ones((XGRID,)*n) * np.inf # Q function
+    # Qexplored = np.zeros_like(Q, dtype=bool) # Q function explored
+    print(f'Q shape: {Q.shape}, Xs shape: {Xs.shape}, us shape: {us.shape}, GP: {GP}, MAX_DEPTH: {MAX_DEPTH}, distX: {distX}')
 
-    print(f'Q shape: {Q.shape}, Xs shape: {Xs.shape}, us shape: {us.shape}')
-    
+    def dists(x1, x2):
+        '''Calculate the distances between two states'''
+        return np.sqrt(((x1-x2)**2))
 
+    def get_closest(x):
+        '''Get the closest grid point'''
+        return tuple([np.argmin(np.abs(Xs[i]-x[i])) for i in range(n)])
 
+    explored = [] # explored states
+    max_depth = 0 # maximum depth reached
 
+    def explore_tree(x, depth, xc): # x: current state, depth: depth, xc: cost
+        '''Explore the tree of states and control inputs'''
+        if depth == MAX_DEPTH: return # maximum depth reached
+        xg_idx = get_closest(x) # grid index
+        xg = np.array([Xs[i][xg_idx[i]] for i in range(n)]) # grid point
 
+        if depth > max_depth: max_depth = depth # update the maximum depth
+        print(f'depth: {depth}, max_depth: {max_depth}')
+        explored.append(xg) # add the grid point to the explored states
 
+        d = dists(x, xg) # distances between the current state and the grid point
+        if np.any(d > distX): return # out of bounds, return
+        if xc < Q[xg_idx]: Q[xg_idx] = xc # update the Q function
+        else: return # no improvement, return
+        cq = Q[xg_idx] # current Q
+        to_visit_next = [] # states to visit next
+        for u in us: # cycle through the control inputs
+            ss = 0 # simulation steps
+            while ss < 200:
+                ss += 1
+                nx = step(x, u, dt) # previous state
+                if np.any(dists(nx, xg) > distX): # we arrived at a new grid point
+                    to_visit_next.append((nx, depth+1, cq+ss)) # add the new state to the next states
+                    break
+                x = nx # update the state
+        for x, d, c in to_visit_next: explore_tree(x, d, c) # breadth first search
 
-    exit()
+    # calculate the Q function
+    x0 = np.array([0, 0]) # initial state
+    explore_tree(x0, 0, 0) # explore the tree
+
+    Q[np.isinf(Q)] = 1 + np.max(Q[~np.isinf(Q)]) # replace the inf values
+
+    # plot the Q function
+    Q = - Q # invert the Q function
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111, projection='3d')
+    X, Y = np.meshgrid(Xs[0], Xs[1])
+    ax1.plot_surface(X, Y, Q, cmap=cm.coolwarm)
+    ax1.set_xlabel('angle')
+    ax1.set_ylabel('angular velocity')
+    ax1.set_zlabel('cost')
+
+    # plot the sequnce of explored states on a 2d plot
+    es = np.array(explored)
+    fig2, ax2 = plt.subplots(1,1, figsize=(6,6))
+    # use arrows to show the sequence of states
+    ax2.quiver(es[:-1,0], es[:-1,1], es[1:,0]-es[:-1,0], es[1:,1]-es[:-1,1], scale_units='xy', angles='xy', scale=1)
+    ax2.set_xlabel('angular velocity')
+    ax2.set_ylabel('angle')
+
+    return fig1, fig2
+
 
 
 
@@ -407,10 +471,10 @@ if __name__ == '__main__':
     main_start = time()
 
     # pc = plot_cost_function()
-    sf = single_free_evolution()
+    # sf = single_free_evolution()
     # t1 = test_1iter_mpc()
     # tm = test_mpc()
-    # q = create_Q_function()
+    q = create_Q_function()
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
     plt.show()
