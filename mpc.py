@@ -389,7 +389,7 @@ def create_Q_function():
     if DP: XMAX, XMIN = np.array([π, π, MAXΩ, MAXΩ]), np.array([-π, -π, -MAXΩ, -MAXΩ])
     n = len(XMAX) # number of states 
     GP = XGRID**n # number of grid points
-    MAX_DEPTH = 60 # maximum depth of the tree
+    MAX_DEPTH = 300 # maximum depth of the tree
     dt = - 1 / OPT_FREQ # time step
     MAX_VISITS = 1e6 # maximum number of visited states
 
