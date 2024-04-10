@@ -42,7 +42,7 @@ def eluer_step(x, u, dt):
     θ, dθ = x # split the state vector
     dθ = dθ + fddθ(θ, dθ, u)[0]*dt # integrate the acceleration
     θ = θ + dθ*dt # integrate the velocity
-    θ = (θ + π) % (2*π) - π # normalize the angle
+    θ = (θ+π) % (2*π) - π # normalize the angle to [-π, π]
     return np.array([θ, dθ]) # new state vector
 
 def symplectic_step(x, u, dt): 

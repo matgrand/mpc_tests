@@ -380,11 +380,11 @@ def plot_cost_function():
     return fig
 
 def create_Q_function():
-    XGRID = 51 # number of grid points for the states
+    XGRID = 31 # number of grid points for the states
     UGRID = 11 # number of grid points for the control inputs
     MAXΩ = 8 # [rad/s] maximum angular velocity
-    MAXU = 4 # maximum control input
-    DEPTH_FIRST = True # depth first search
+    MAXU = 3 # maximum control input
+    DEPTH_FIRST = False # depth first search
     if SP: XMAX, XMIN = np.array([π, MAXΩ]), np.array([-π, -MAXΩ])
     if DP: XMAX, XMIN = np.array([π, π, MAXΩ, MAXΩ]), np.array([-π, -π, -MAXΩ, -MAXΩ])
     n = len(XMAX) # number of states 
@@ -407,6 +407,12 @@ def create_Q_function():
     def get_closest(x):
         '''Get the closest grid point'''
         return tuple([np.argmin(np.abs(Xs[i]-x[i])) for i in range(n)])
+    
+    def is_outside(x):
+        '''Check if the state is outside the grid'''
+        #split x into angles and velocities, angles are first half of x
+        vs = x[n//2:]
+        return np.any(vs < XMIN[n//2:]) or np.any(vs > XMAX[n//2:])
 
     explored = [] # explored states
     depths = [] # maximum depth reached
@@ -418,22 +424,21 @@ def create_Q_function():
         xg = np.array([Xs[i][xg_idx[i]] for i in range(n)]) # grid point
         # if Qexplored[xg_idx]: return # already explored
         Qexplored[xg_idx] = True # mark as explored
-        d = dists(x, xg) # distances between the current state and the grid point
-        if np.any(d > distX): return # out of bounds, return
+        if is_outside(x): return # out of bounds, return
 
         #debug
         explored.append(xg), depths.append(depth) # save the explored states
         tot_visited = len(explored) # total visited states
         if tot_visited > MAX_VISITS: return # maximum number of visited states reached
-        if len(explored) % 100 == 0: print(f'expl: {100*np.sum(Qexplored)/GP:.1f}%, vis: {tot_visited}, max depth: {max(depths)}, cost: {xc:.0f}    ')#, end='\r')
+        if len(explored) % 100 == 0: print(f'expl: {100*np.sum(Qexplored)/GP:.1f}%, vis: {tot_visited}, max depth: {max(depths)}, cost: {xc:.0f}    ', end='\r')
 
         if xc < Q[xg_idx]: Q[xg_idx] = xc # update the Q function
         else: return # no improvement, return
         cq = Q[xg_idx] # current Q
         if not DEPTH_FIRST: to_visit_next = [] # states to visit next
         for u in us: # cycle through the control inputs
-            # xu = x.copy() # current state
-            xu = xg.copy() # current state
+            xu = x.copy() # current state
+            # xu = xg.copy() # current state
             ss = 0 # simulation steps
             while ss < 200: # simulate the pendulum
                 ss += 1 # simulation step
@@ -449,28 +454,31 @@ def create_Q_function():
     x0 = np.array([0, 0]) # initial state
     explore_tree(x0, 0, 0) # explore the tree
 
-    # #find the bestt inputs for each state
-    # bus = np.zeros_like(Q)
-    # for i, x1 in enumerate(Xs[0]):
-    #     for j, x2 in enumerate(Xs[1]):
-    #         if not Qexplored[i,j]: continue
-    #         xg = np.array([x1, x2])
-    #         x = xg.copy()
-    #         Qij = Q[i,j]
-    #         costs = np.zeros_like(us)
-    #         for u in us:
-    #             xu = x.copy() # current state
-    #             ss = 0 # simulation steps
-    #             while ss < 200: # simulate the pendulum
-    #                 ss += 1 # simulation step
-    #                 xu = step(xu, u, dt) # simulation step
-    #                 if np.any(dists(xu, xg) > distX): # we arrived at a new grid point
-                        
-    #                 x = xu # update the state
-                    
+    #find the best inputs for each state
+    bus = np.zeros_like(Q)
+    for i, x1 in tqdm(enumerate(Xs[0])):
+        for j, x2 in enumerate(Xs[1]):
+            if not Qexplored[i,j]: continue
+            xg = np.array([x1, x2])
+            x = xg.copy()
+            Qij = Q[i,j]
+            costs = np.zeros_like(us)
+            for iu, u in enumerate(us):
+                xu = x.copy() # current state
+                ss = 0 # simulation steps
+                while ss < 200: # simulate the pendulum
+                    ss += 1 # simulation step
+                    xu = step(xu, u, dt) # simulation step
+                    if is_outside(xu): break # out of bounds, break
+                    elif np.any(dists(xu, xg) > distX): # we arrived at a new grid point
+                        costs[iu] = Q[get_closest(xu)]
+                        break
+            bus[i,j] = us[np.argmin(costs)]
+
+                                            
             
 
-    Q[np.isinf(Q)] = 1 + np.max(Q[~np.isinf(Q)]) # replace the inf values
+    Q[np.isinf(Q)] = 50 + np.max(Q[~np.isinf(Q)]) # replace the inf values
 
     # plot the Q function
     Q = - Q # invert the Q function
@@ -482,9 +490,18 @@ def create_Q_function():
     ax1.set_ylabel('angular velocity')
     ax1.set_zlabel('cost')
 
-    # create an animation with each state
+    # plot the best control inputs
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot(111, projection='3d')
+    X, Y = np.meshgrid(Xs[0], Xs[1])
+    ax2.plot_surface(X, Y, bus, cmap=cm.coolwarm)
+    ax2.set_xlabel('angle')
+    ax2.set_ylabel('angular velocity')
+    ax2.set_zlabel('control input')
 
-    return fig1
+
+
+    return fig1, fig2
 
 
 
