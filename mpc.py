@@ -380,64 +380,94 @@ def plot_cost_function():
     return fig
 
 def create_Q_function():
-    XGRID = 41 # number of grid points for the states
-    UGRID = 20 # number of grid points for the control inputs
-    MAXΩ = 3 # [rad/s] maximum angular velocity
+    XGRID = 31 # number of grid points for the states
+    UGRID = 11 # number of grid points for the control inputs
+    MAXΩ = 8 # [rad/s] maximum angular velocity
+    MAXU = 4 # maximum control input
+    DEPTH_FIRST = False # depth first search
     if SP: XMAX, XMIN = np.array([π, MAXΩ]), np.array([-π, -MAXΩ])
     if DP: XMAX, XMIN = np.array([π, π, MAXΩ, MAXΩ]), np.array([-π, -π, -MAXΩ, -MAXΩ])
     n = len(XMAX) # number of states 
     GP = XGRID**n # number of grid points
-    MAX_DEPTH = 200 # maximum depth of the tree
+    MAX_DEPTH = 60 # maximum depth of the tree
     dt = - 1 / OPT_FREQ # time step
+    MAX_VISITS = 1e6 # maximum number of visited states
 
     Xs = np.array([np.linspace(XMIN[i], XMAX[i], XGRID) for i in range(n)]) # grid points
     distX = np.array([(Xs[i,1]-Xs[i,0])/2 for i in range(n)]) # distance between grid points
-    us = np.linspace(-INPUT_CLIP, INPUT_CLIP, UGRID) # control inputs   
+    us = np.linspace(-MAXU, MAXU, UGRID) # control inputs   
     Q = np.ones((XGRID,)*n) * np.inf # Q function
-    # Qexplored = np.zeros_like(Q, dtype=bool) # Q function explored
+    Qexplored = np.zeros_like(Q, dtype=bool) # Q function explored
     print(f'Q shape: {Q.shape}, Xs shape: {Xs.shape}, us shape: {us.shape}, GP: {GP}, MAX_DEPTH: {MAX_DEPTH}, distX: {distX}')
 
     def dists(x1, x2):
         '''Calculate the distances between two states'''
-        return np.sqrt(((x1-x2)**2))
+        return np.abs(x1-x2)
 
     def get_closest(x):
         '''Get the closest grid point'''
         return tuple([np.argmin(np.abs(Xs[i]-x[i])) for i in range(n)])
 
     explored = [] # explored states
-    max_depth = 0 # maximum depth reached
+    depths = [] # maximum depth reached
 
     def explore_tree(x, depth, xc): # x: current state, depth: depth, xc: cost
         '''Explore the tree of states and control inputs'''
         if depth == MAX_DEPTH: return # maximum depth reached
         xg_idx = get_closest(x) # grid index
         xg = np.array([Xs[i][xg_idx[i]] for i in range(n)]) # grid point
-
-        if depth > max_depth: max_depth = depth # update the maximum depth
-        print(f'depth: {depth}, max_depth: {max_depth}')
-        explored.append(xg) # add the grid point to the explored states
-
+        # if Qexplored[xg_idx]: return # already explored
+        Qexplored[xg_idx] = True # mark as explored
         d = dists(x, xg) # distances between the current state and the grid point
         if np.any(d > distX): return # out of bounds, return
+
+        #debug
+        explored.append(xg), depths.append(depth) # save the explored states
+        tot_visited = len(explored) # total visited states
+        if tot_visited > MAX_VISITS: return # maximum number of visited states reached
+        if len(explored) % 100 == 0: print(f'expl: {100*np.sum(Qexplored)/GP:.1f}%, vis: {tot_visited}, max depth: {max(depths)}, cost: {xc:.0f}    ')#, end='\r')
+
         if xc < Q[xg_idx]: Q[xg_idx] = xc # update the Q function
         else: return # no improvement, return
         cq = Q[xg_idx] # current Q
-        to_visit_next = [] # states to visit next
+        if not DEPTH_FIRST: to_visit_next = [] # states to visit next
         for u in us: # cycle through the control inputs
+            xu = x.copy() # current state
             ss = 0 # simulation steps
-            while ss < 200:
-                ss += 1
-                nx = step(x, u, dt) # previous state
-                if np.any(dists(nx, xg) > distX): # we arrived at a new grid point
-                    to_visit_next.append((nx, depth+1, cq+ss)) # add the new state to the next states
+            while ss < 200: # simulate the pendulum
+                ss += 1 # simulation step
+                xu = step(xu, u, dt) # simulation step
+                if np.any(dists(xu, xg) > distX): # we arrived at a new grid point
+                    if DEPTH_FIRST: explore_tree(xu, depth+1, cq+ss) # explore the tree, DEPTH FIRST SEARCH
+                    else: to_visit_next.append((xu, depth+1, cq+ss)) # add new state to visit next, BREATH FIRST SEARCH
                     break
-                x = nx # update the state
-        for x, d, c in to_visit_next: explore_tree(x, d, c) # breadth first search
+        if not DEPTH_FIRST: 
+            for nx, nd, nc in to_visit_next: explore_tree(nx, nd, nc) # BREATH FIRST SEARCH
 
     # calculate the Q function
     x0 = np.array([0, 0]) # initial state
     explore_tree(x0, 0, 0) # explore the tree
+
+    # Qvalid = Q[~np.isinf(Q)]
+    # #find the bestt inputs for each state
+    # bus = np.zeros_like(Q)
+    # for i, x1 in enumerate(Xs[0]):
+    #     for j, x2 in enumerate(Xs[1]):
+    #         xg = np.array([x1, x2])
+    #         x = xg.copy()
+    #         Qij = Q[i,j]
+    #         costs = np.zeros_like(us)
+    #         for u in us:
+    #             xu = x.copy() # current state
+    #             ss = 0 # simulation steps
+    #             while ss < 200: # simulate the pendulum
+    #                 ss += 1 # simulation step
+    #                 xu = step(xu, u, dt) # simulation step
+    #                 if np.any(dists(xu, xg) > distX): # we arrived at a new grid point
+                        
+    #                 x = xu # update the state
+                    
+            
 
     Q[np.isinf(Q)] = 1 + np.max(Q[~np.isinf(Q)]) # replace the inf values
 
@@ -451,15 +481,9 @@ def create_Q_function():
     ax1.set_ylabel('angular velocity')
     ax1.set_zlabel('cost')
 
-    # plot the sequnce of explored states on a 2d plot
-    es = np.array(explored)
-    fig2, ax2 = plt.subplots(1,1, figsize=(6,6))
-    # use arrows to show the sequence of states
-    ax2.quiver(es[:-1,0], es[:-1,1], es[1:,0]-es[:-1,0], es[1:,1]-es[:-1,1], scale_units='xy', angles='xy', scale=1)
-    ax2.set_xlabel('angular velocity')
-    ax2.set_ylabel('angle')
+    # create an animation with each state
 
-    return fig1, fig2
+    return fig1
 
 
 
