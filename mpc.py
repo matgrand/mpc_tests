@@ -380,11 +380,11 @@ def plot_cost_function():
     return fig
 
 def create_Q_function():
-    XGRID = 31 # number of grid points for the states
+    XGRID = 51 # number of grid points for the states
     UGRID = 11 # number of grid points for the control inputs
     MAXΩ = 8 # [rad/s] maximum angular velocity
     MAXU = 4 # maximum control input
-    DEPTH_FIRST = False # depth first search
+    DEPTH_FIRST = True # depth first search
     if SP: XMAX, XMIN = np.array([π, MAXΩ]), np.array([-π, -MAXΩ])
     if DP: XMAX, XMIN = np.array([π, π, MAXΩ, MAXΩ]), np.array([-π, -π, -MAXΩ, -MAXΩ])
     n = len(XMAX) # number of states 
@@ -432,7 +432,8 @@ def create_Q_function():
         cq = Q[xg_idx] # current Q
         if not DEPTH_FIRST: to_visit_next = [] # states to visit next
         for u in us: # cycle through the control inputs
-            xu = x.copy() # current state
+            # xu = x.copy() # current state
+            xu = xg.copy() # current state
             ss = 0 # simulation steps
             while ss < 200: # simulate the pendulum
                 ss += 1 # simulation step
@@ -448,11 +449,11 @@ def create_Q_function():
     x0 = np.array([0, 0]) # initial state
     explore_tree(x0, 0, 0) # explore the tree
 
-    # Qvalid = Q[~np.isinf(Q)]
     # #find the bestt inputs for each state
     # bus = np.zeros_like(Q)
     # for i, x1 in enumerate(Xs[0]):
     #     for j, x2 in enumerate(Xs[1]):
+    #         if not Qexplored[i,j]: continue
     #         xg = np.array([x1, x2])
     #         x = xg.copy()
     #         Qij = Q[i,j]
