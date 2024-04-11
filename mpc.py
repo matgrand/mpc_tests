@@ -581,14 +581,14 @@ def create_Q_function2(x0=np.array([0,0])):# initial state):
     if DP: XMAX, XMIN = np.array([π, π, MAXΩ, MAXΩ]), np.array([-π, -π, -MAXΩ, -MAXΩ])
     n = len(XMAX) # number of states 
     GP = XGRID**n # number of grid points
-    MAX_DEPTH = 7 # maximum depth of the tree
+    MAX_DEPTH = 18 # maximum depth of the tree
     dt = - 1 / OPT_FREQ # time step ( NOTE: negative for exploring from the instability point )
 
     Xs = np.array([np.linspace(XMIN[i], XMAX[i], XGRID) for i in range(n)]) # grid points
     distX = np.array([(Xs[i,1]-Xs[i,0])/2 for i in range(n)]) # distance between grid points
     us = np.linspace(-MAXU, MAXU, UGRID) # control inputs   
     Q = np.ones((XGRID,)*n) * np.inf # Q function
-    Qexplored = np.zeros_like(Q, dtype=bool) # Q function explored
+    Qexplored = np.zeros_like(Q) # Q function explored
     print(f'Q shape: {Q.shape}, Xs shape: {Xs.shape}, us shape: {us.shape}, GP: {GP}, MAX_DEPTH: {MAX_DEPTH}, distX: {distX}')
 
     def get_dists(x1, x2):
@@ -618,6 +618,16 @@ def create_Q_function2(x0=np.array([0,0])):# initial state):
         return get_closest_full(x)
 
 
+    '''
+    stuff to do:
+    - create ways of pruning the tree like: 
+        - ignore already optimized states, somehow use depth to do it
+        - use continuity constraint to ignore very different inputs
+    - mix both the breadth search and the depth first method
+    - consider only contiguos steps, skipping steps is teoretically wrong
+    - consider applying simple reinforcement learning pipeline (no reverse time) first
+    '''
+
     explored = [] # explored states
     curr_states, curr_costs = [x0], [0] # current states and costs
     for d in (range(MAX_DEPTH)): 
@@ -627,15 +637,14 @@ def create_Q_function2(x0=np.array([0,0])):# initial state):
             explored.append(x) # save the explored states
             # print(f'  state: {x}, cost: {c:.2f}, expl:{100*np.sum(Qexplored)/GP:.1f} %    ')#, end='\r')
             xgi, xg = get_closest(x) # closest grid point
-            # if Qexplored[xgi]: continue # already explored
-            if not Qexplored[xgi]: Qexplored[xgi] = True # mark as explored
+            if Qexplored[xgi] < d-2: continue # already explored in previous depths
+            Qexplored[xgi] = d
             if c < Q[xgi]: Q[xgi] = c # update the Q function
             for u in us: # cycle through the control inputs
                 xu = x.copy() # current state
-                for si in range(int(2.5 * OPT_FREQ)):
-                    nxu = step(xu, u, dt)
-                    # print(f'{xu} -> {nxu}')
-                    xu = nxu
+                sim_steps = int(2.5 * OPT_FREQ) # simulation steps
+                for si in range(sim_steps):
+                    xu = step(xu, u, dt)
                     if is_outside(xu): break
                     dist = get_dists(xu, xg)
                     if np.any(dist < distX): continue # still at the same grid point
@@ -644,7 +653,9 @@ def create_Q_function2(x0=np.array([0,0])):# initial state):
                         csi = c + si/OPT_FREQ #+ np.abs(u)/MAXU # cost of the state after si steps
                         next_states.append(xu), next_costs.append(csi) # save the state and cost
                         break # exit the simulation loop
+                if si == sim_steps-1: print('\nWarning: max simulation steps reached\n')
         curr_states, curr_costs = next_states, next_costs
+
     print()
 
     #find the best inputs for each state
