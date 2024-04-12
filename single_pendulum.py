@@ -5,7 +5,9 @@ import sympy as sp
 g = 9.81 # [m/s^2] gravity
 l = 1 # [m] length of the pendulum
 m = 1 # [kg] mass of the pendulum
-μ = 0.02 # [kg/s] damping coefficient
+μ = - 0.2 # [kg/s] damping coefficient
+
+if µ < 0: print('Warning: the damping coefficient is negative')
 
 # calculate the dynamics using symbolic math
 t = sp.symbols('t')
