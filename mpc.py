@@ -18,7 +18,7 @@ SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
 M = SP
-OPT_FREQ = 600 # frequency of the time steps optimization
+OPT_FREQ = 60 # frequency of the time steps optimization
 SIM_FREQ = 10*OPT_FREQ # frequency of the time steps simulation
 assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 CLIP = True # clip the control input
@@ -545,6 +545,7 @@ def create_Q_table():
     
     '''
     stuff to do:
+    - a lot of the states created fall into very few grid states
     - create a tree of reachable states given the control inputs + plot it
     - DONE? solve the problem of the simulation steps not reaching the grid point
     - create ways of pruning the tree like: 
@@ -666,8 +667,6 @@ def create_Q_table():
             curr_states = next_states
         plt.show()
 
-    test2()
-    exit()
 
     x0 = np.array([0,0]) # initial state
     # depth first
