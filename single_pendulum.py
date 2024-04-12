@@ -5,7 +5,7 @@ import sympy as sp
 g = 9.81 # [m/s^2] gravity
 l = 1 # [m] length of the pendulum
 m = 1 # [kg] mass of the pendulum
-μ = 0.2 # [kg/s] damping coefficient
+μ = 0.02 # [kg/s] damping coefficient
 
 # calculate the dynamics using symbolic math
 t = sp.symbols('t')
@@ -44,7 +44,6 @@ def step(x, u, dt):
     θ = θ + dθ*dt # integrate the velocity
     θ = (θ+π) % (2*π) - π # normalize the angle to [-π, π]
     return np.array([θ, dθ]) # new state vector
-
 
 if __name__ == '__main__':
 

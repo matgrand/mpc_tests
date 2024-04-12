@@ -328,3 +328,28 @@ def plot_double(x, t, u, T, V, figsize=(12,10)):
     ax[5].set_ylabel('Control input')
     ax[0].grid(True), ax[1].grid(True), ax[2].grid(True), ax[3].grid(True)
     plt.tight_layout()
+
+def plot_state_trajectories(xs, figsize=(8,8)):
+    fig, ax = plt.subplots(figsize=figsize)
+    for x in xs:
+        x = np.array(x)
+        θs, dθs = x[:,0], x[:,1]
+        θs = np.where(θs < 0, θs + 2*π, θs) # normalize the angle to [0, 2π]
+        #check if there are interruptions in the angles
+        interruptions = np.where(np.abs(np.diff(θs)) > π/2)[0]
+        #split the angles in the interruptions
+        θs = np.split(θs, interruptions+1)
+        dθs = np.split(dθs, interruptions+1)
+
+        #plot the trajectories
+        for θ, dθ in zip(θs, dθs):
+            ax.plot(θ, dθ, '-', lw=1)
+
+    ax.set_xlim(0, 2*π)
+    ax.set_xlabel('angle')
+    ax.set_ylabel('angular velocity')
+    ax.grid(True)
+    ax.set_xticks(np.arange(0, 2*π+1, π/2))
+    ax.set_xticklabels(['0', 'π/2', 'π', '3π/2', '2π'])
+    plt.tight_layout()
+    return fig
