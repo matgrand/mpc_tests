@@ -545,8 +545,8 @@ def create_Q_table():
     
     '''
     stuff to do:
-    - create a tree of reachable states given the control inputs
-    - solve the problem of the simulation steps not reaching the grid point
+    - create a tree of reachable states given the control inputs + plot it
+    - DONE? solve the problem of the simulation steps not reaching the grid point
     - create ways of pruning the tree like: 
         - ignore already optimized states, somehow use depth to do it
         - use continuity constraint to ignore very different inputs
@@ -608,10 +608,10 @@ def create_Q_table():
     ########################################################################################################################
     ### PARAMETERS #########################################################################################################
     AGRID = 12 # number of grid points angles
-    VGRID = 19 # number of grid points velocities
-    UGRID = 7 # number of grid points for the control inputs
-    MAXV = 18 # [rad/s] maximum angular velocity
-    MAXU = 1 # maximum control input
+    VGRID = 11 # number of grid points velocities
+    UGRID = 11 # number of grid points for the control inputs
+    MAXV = 10 # [rad/s] maximum angular velocity
+    MAXU = 0.1 # maximum control input
 
     AMIN, AMAX = -π, π-(2*π)/AGRID # minimum and maximum angles
     VMIN, VMAX = -MAXV, MAXV # minimum and maximum velocities
@@ -636,46 +636,6 @@ def create_Q_table():
     
     ########################################################################################################################
     ########################################################################################################################
-
-    def tests():
-        # tests
-        #plot the grid points As, Vs
-        fig, ax = plt.subplots(1,1, figsize=(12,12))
-        #create a meshgrid
-        X, Y = np.meshgrid(As, Vs)
-        print(f'X: {X.shape}, Y: {Y.shape}')
-        # define GP random colors
-        colors = np.random.rand(AGRID, VGRID, 3)
-        #plot the grid points
-        for a in range(AGRID):
-            for v in range(VGRID):
-                ax.plot(As[a], Vs[v], 'o', color=colors[a,v])
-
-        # create a random trajectory for the pendulum
-        x0 = np.array([uniform(AMIN, AMAX), uniform(VMIN, VMAX)]) # initial state
-        x = x0.copy() # current state
-        path = [x0] # path
-        color_path = [colors[get_closest(x0)[0]]] # color of the path
-        for i in range(13*SIM_FREQ):
-            x = step(x, 0, dt) # simulate the pendulum
-            path.append(x) # save the state
-            color_path.append(colors[get_closest(x)[0]]) # save the color
-        
-        xs = np.array(path).T
-        #plot the path, with each state colored with the color of the grid point, no line
-        ax.scatter(xs[0], xs[1], c=color_path, s=2)
-        ax.set_xlabel('angle')
-        ax.set_ylabel('angular velocity')
-        ax.grid(True)
-
-        # create a tree of reachable states given the control inputs
-
-
-
-
-
-
-        return fig
         
     x0 = np.array([0,0]) # initial state
     # depth first
