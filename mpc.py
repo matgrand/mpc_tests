@@ -203,14 +203,14 @@ def test_1iter_mpc():
         xs1, xs2 = xs[:, :, 0], xs[:, :, 1] # angles and angular velocities splitted
         to_plot = np.array([xs1, xs2, us, Ts, Vs])
         a13 = general_multiplot_anim(to_plot, to, ['x1','x2','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
-        a1f1 = animate_pendulum(x_free, 0*eu, t[1]-t[0], l, fps=60, figsize=(6,6), title='Pendulum free')
-        a1p1 = animate_pendulum(x, eu, t[1]-t[0], l, fps=60, figsize=(6,6), title='Pendulum')
+        a1f1 = animate_pendulum(x_free, 0*eu, t[1]-t[0], l, fps=60, figsize=(10,10), title='Pendulum free')
+        a1p1 = animate_pendulum(x, eu, t[1]-t[0], l, fps=60, figsize=(10,10), title='Pendulum')
     if DP:
         a12 = animate_costs(np.array(costs), labels=labels, figsize=(6,4), logscale=False)
         to_plot = np.array([xs[:,:,0], xs[:,:,1], xs[:,:,2], xs[:,:,3], us, Ts, Vs])
         a13 = general_multiplot_anim(to_plot, to, ['x1','x2','x3','x4','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
-        a1f1 = animate_double_pendulum(x_free, 0*eu, t[1]-t[0], l1, l2, fps=60, figsize=(6,6), title='Double Pendulum free')
-        a1p1 = animate_double_pendulum(x, eu, t[1]-t[0], l1, l2, fps=60, figsize=(6,6), title='Double Pendulum')
+        a1f1 = animate_double_pendulum(x_free, 0*eu, t[1]-t[0], l1, l2, fps=60, figsize=(10,10), title='Double Pendulum free')
+        a1p1 = animate_double_pendulum(x, eu, t[1]-t[0], l1, l2, fps=60, figsize=(10,10), title='Double Pendulum')
     print()
     return a12, a13, a1p1, a1f1
 
@@ -274,11 +274,11 @@ def test_mpc():
     if SP:
         to_plot = np.array([xs[:,:,0], xs[:,:,1], us, Ts, Vs])
         a3 = general_multiplot_anim(to_plot, to, ['x1','x2','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
-        ap1 = animate_pendulum(x, eu, ts[1]-ts[0], l, fps=60, figsize=(6,6), title='Pendulum')
+        ap1 = animate_pendulum(x, eu, ts[1]-ts[0], l, fps=60, figsize=(10,10), title='Pendulum')
     if DP:
         to_plot = np.array([xs[:,:,0], xs[:,:,1], xs[:,:,2], xs[:,:,3], us, Ts, Vs])
         a3 = general_multiplot_anim(to_plot, to, ['x1','x2','x3','x4','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
-        ap1 = animate_double_pendulum(x, eu, ts[1]-ts[0], l1, l2, fps=60, figsize=(6,6), title='Double Pendulum')
+        ap1 = animate_double_pendulum(x, eu, ts[1]-ts[0], l1, l2, fps=60, figsize=(10,10), title='Double Pendulum')
     print()
     return a3, ap1
 
@@ -353,7 +353,7 @@ def single_free_evolution():
         # translate all the angles from [-π, π] to [0, 2π]
         xrs[:,:,0] = np.where(xrs[:,:,0]<0, xrs[:,:,0]+2*π, xrs[:,:,0])
         xrrs[:,:,0] = np.where(xrrs[:,:,0]<0, xrrs[:,:,0]+2*π, xrrs[:,:,0])
-        sf15, ax = plt.subplots(1,1, figsize=(6,6))
+        sf15, ax = plt.subplots(1,1, figsize=(10,10))
         ax.plot(xrsr[:,:,0].T, xrsr[:,:,1].T, alpha=0.5)
         ax.plot(xrrs[:,:,0].T, xrrs[:,:,1].T, alpha=0.5)
         ax.set_xlabel('angle')
@@ -419,7 +419,7 @@ def create_Q_table():
         a, v = As[idxs[0]], Vs[idxs[1]]
         return np.array([a, v])
 
-    def get_closest(x, idxs=None):
+    def get_closest(x, idxs=None): # ret (idxs, xgrid)
         assert SP
         da = dist_angle(x[0], As)
         dv = dist_velocity(x[1], Vs)
@@ -469,7 +469,7 @@ def create_Q_table():
             Q = - Q # invert the Q function
             # from (12,19) to (19,12)
             Q = Q.T
-            fig1 = plt.figure(figsize=(12,12))
+            fig1 = plt.figure(figsize=(10,10))
             ax1 = fig1.add_subplot(111, projection='3d')
             X, Y = np.meshgrid(As, Vs)
             assert Q.shape == X.shape == Y.shape, f'Q: {Q.shape}, X: {X.shape}, Y: {Y.shape}'
@@ -482,7 +482,7 @@ def create_Q_table():
         if bus is not None:
             # plot the best control inputs
             bus = bus.T
-            fig2 = plt.figure(figsize=(12,12))
+            fig2 = plt.figure(figsize=(10,10))
             ax2 = fig2.add_subplot(111, projection='3d')
             X, Y = np.meshgrid(As, Vs)
             ax2.plot_surface(X, Y, bus, cmap=cm.coolwarm)
@@ -495,12 +495,12 @@ def create_Q_table():
         if paths is not None:
             pats = [np.array(p).T for p in paths]
             print(f'paths[0]: {pats[0].shape}')
-            fig0 = plot_state_trajectories(paths, figsize=(12,12))
+            fig0 = plot_state_trajectories(paths, figsize=(10,10))
         else: fig0 = None
 
         # plot the sequence of visited states
         if explored is not None:
-            fig3, ax = plt.subplots(1,1, figsize=(12,12))
+            fig3, ax = plt.subplots(1,1, figsize=(10,10))
             xs = np.array(explored).T
             xs = xs[:,:10000]
             ax.plot(xs[0], xs[1], linewidth=1)
@@ -607,11 +607,11 @@ def create_Q_table():
     ########################################################################################################################
     ########################################################################################################################
     ### PARAMETERS #########################################################################################################
-    AGRID = 12 # number of grid points angles
-    VGRID = 11 # number of grid points velocities
-    UGRID = 11 # number of grid points for the control inputs
-    MAXV = 10 # [rad/s] maximum angular velocity
-    MAXU = 0.1 # maximum control input
+    AGRID = 24 # number of grid points angles
+    VGRID = 25 # number of grid points velocities
+    UGRID = 9 # number of grid points for the control inputs
+    MAXV = 16 # [rad/s] maximum angular velocity
+    MAXU = 4 # maximum control input
 
     AMIN, AMAX = -π, π-(2*π)/AGRID # minimum and maximum angles
     VMIN, VMAX = -MAXV, MAXV # minimum and maximum velocities
@@ -619,9 +619,9 @@ def create_Q_table():
     if DP: N = 4 # number of states
     GP = AGRID**(N//2)*VGRID**(N//2) # number of grid points
     MAX_DEPTH_DF = 400 # maximum depth of the tree for depth first
-    MAX_DEPTH_BF = 7 # maximum depth of the tree for breadth first
+    MAX_DEPTH_BF = 10 # maximum depth of the tree for breadth first
     dt = - 1 / OPT_FREQ # time step ( NOTE: negative for exploring from the instability point )
-    MAX_VISITS = 1e6 # number of states visited by the algorithm
+    MAX_VISITS = 3e6 # number of states visited by the algorithm
     if dt > 0: print('Warning: dt is positive')
 
     As = np.linspace(AMIN, AMAX, AGRID) # angles
@@ -636,18 +636,50 @@ def create_Q_table():
     
     ########################################################################################################################
     ########################################################################################################################
-        
+    
+    def test2():
+        print(f'us: {us}')
+        # lets plot a graph of visitable nodes
+        fig, ax = plt.subplots(1,1, figsize=(10,10))
+        #plot the grid with small black dots
+        for a in As:
+            for v in Vs: ax.plot(a,v, 'ko', markersize=1)
+        x0 = np.array([0,0]) # initial state
+        DEPTH = 5
+        # define DEPTH random colors
+        colors = np.random.rand(DEPTH, 3)
+        curr_states = [get_closest(x0)[1]] # current states
+        for d in (range(DEPTH)): 
+            print(f'depth: {d}/{DEPTH}, states: {len(curr_states)}    ')
+            next_states = []
+            for xg in curr_states:
+                #plot a point of the current state
+                x, y = xg
+                ax.plot(x, y, 'o', color=colors[d])
+                reach, _, _ = reachable_states(xg, us)
+                reach_grid = [get_closest(x)[1] for x in reach]
+                for nxg in reach_grid:
+                    xgi, xg = get_closest(nxg)
+                    #add a line connecting xg to nxg
+                    ax.plot([x, xg[0]], [y, xg[1]], color=colors[d])
+                    next_states.append(xg)
+            curr_states = next_states
+        plt.show()
+
+    test2()
+    exit()
+
     x0 = np.array([0,0]) # initial state
     # depth first
     print('Depth first')
     Qb, Qeb = Q.copy(), Qe.copy()
     Qb, Qeb, explb = explore_depth_first(Qb, Qeb, x0)
-    print(f'expl: {100*np.sum(Qeb)/GP:.1f}%, vis: {len(explb)}')
+    print(f'\nexpl: {100*np.sum(Qeb)/GP:.1f}%, vis: {len(explb)}')
     # breadth first
     print('Breadth first')
     Qd, Qed = Q.copy(), Qe.copy()
     Qd, Qed, expld = explore_breadth_firts(Qd, Qed, x0)
-    print(f'expl: {100*np.sum(Qed)/GP:.1f}%, vis: {len(expld)}')
+    print(f'\nexpl: {100*np.sum(Qed)/GP:.1f}%, vis: {len(expld)}')
 
     # find the optimal control inputs
     print('Optimal inputs')
