@@ -612,7 +612,7 @@ def create_Q_table():
     VGRID = AGRID+1 # number of grid points velocities 25
     UGRID = 19 # number of grid points for the control inputs
     MAXV = 16 # [rad/s] maximum angular velocity
-    MAXU = 10 # maximum control input
+    MAXU = 8 # maximum control input
 
     AMIN, AMAX = -π, π-(2*π)/AGRID # minimum and maximum angles
     VMIN, VMAX = -MAXV, MAXV # minimum and maximum velocities
@@ -646,13 +646,14 @@ def create_Q_table():
         for a in As:
             for v in Vs: ax.plot(a,v, 'ko', markersize=1)
         x0 = np.array([0,0]) # initial state
-        DEPTH = 100
+        DEPTH = 1000
         # define DEPTH random colors
         colors = np.random.rand(DEPTH, 3)
         curr_states = [get_closest(x0)] # current states
         visited = np.zeros_like(Q) # visited states
-        Qt = np.zeros_like(Q) # temporary Q function
+        Qt = 100+ np.zeros_like(Q) # temporary Q function
         for d in (range(DEPTH)): 
+            if len(curr_states) == 0: break # no more states to explore
             print(f'depth: {d}/{DEPTH}, states: {len(curr_states)}    ')
             next_states = []
             for xgi, xg in curr_states:

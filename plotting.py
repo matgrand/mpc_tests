@@ -331,7 +331,9 @@ def plot_double(x, t, u, T, V, figsize=(12,10)):
 
 def plot_state_trajectories(xs, figsize=(8,8)):
     fig, ax = plt.subplots(figsize=figsize)
-    for x in xs:
+    #create colors
+    colors = plt.cm.viridis(np.linspace(0, 1, len(xs)))
+    for x, c in zip(xs, colors):
         x = np.array(x)
         θs, dθs = x[:,0], x[:,1]
         θs = np.where(θs < 0, θs + 2*π, θs) # normalize the angle to [0, 2π]
@@ -343,7 +345,7 @@ def plot_state_trajectories(xs, figsize=(8,8)):
 
         #plot the trajectories
         for θ, dθ in zip(θs, dθs):
-            ax.plot(θ, dθ, '-', lw=1)
+            ax.plot(θ, dθ, '-', lw=1, color=c)
 
     ax.set_xlim(0, 2*π)
     ax.set_xlabel('angle')
