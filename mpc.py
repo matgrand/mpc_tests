@@ -612,7 +612,7 @@ def create_Q_table():
     VGRID = 25 # number of grid points velocities
     UGRID = 9 # number of grid points for the control inputs
     MAXV = 16 # [rad/s] maximum angular velocity
-    MAXU = 4 # maximum control input
+    MAXU = 6 # maximum control input
 
     AMIN, AMAX = -π, π-(2*π)/AGRID # minimum and maximum angles
     VMIN, VMAX = -MAXV, MAXV # minimum and maximum velocities
@@ -665,37 +665,39 @@ def create_Q_table():
                     ax.plot([x, xg[0]], [y, xg[1]], color=colors[d])
                     next_states.append(xg)
             curr_states = next_states
-        plt.show()
+        return fig
 
+    f = test2()
 
-    x0 = np.array([0,0]) # initial state
-    # depth first
-    print('Depth first')
-    Qb, Qeb = Q.copy(), Qe.copy()
-    Qb, Qeb, explb = explore_depth_first(Qb, Qeb, x0)
-    print(f'\nexpl: {100*np.sum(Qeb)/GP:.1f}%, vis: {len(explb)}')
-    # breadth first
-    print('Breadth first')
-    Qd, Qed = Q.copy(), Qe.copy()
-    Qd, Qed, expld = explore_breadth_firts(Qd, Qed, x0)
-    print(f'\nexpl: {100*np.sum(Qed)/GP:.1f}%, vis: {len(expld)}')
+    # x0 = np.array([0,0]) # initial state
+    # # depth first
+    # print('Depth first')
+    # Qb, Qeb = Q.copy(), Qe.copy()
+    # Qb, Qeb, explb = explore_depth_first(Qb, Qeb, x0)
+    # print(f'\nexpl: {100*np.sum(Qeb)/GP:.1f}%, vis: {len(explb)}')
+    # # breadth first
+    # print('Breadth first')
+    # Qd, Qed = Q.copy(), Qe.copy()
+    # Qd, Qed, expld = explore_breadth_firts(Qd, Qed, x0)
+    # print(f'\nexpl: {100*np.sum(Qed)/GP:.1f}%, vis: {len(expld)}')
 
-    # find the optimal control inputs
-    print('Optimal inputs')
-    busb = find_optimal_inputs(Qb, Qeb, As, Vs, us)
-    busd = find_optimal_inputs(Qd, Qed, As, Vs, us)
+    # # find the optimal control inputs
+    # print('Optimal inputs')
+    # busb = find_optimal_inputs(Qb, Qeb, As, Vs, us)
+    # busd = find_optimal_inputs(Qd, Qed, As, Vs, us)
 
-    # generate optimal paths
-    print('Optimal paths')
-    pathsb = generate_optimal_paths(busb, Qeb)
-    pathsd = generate_optimal_paths(busd, Qed)
+    # # generate optimal paths
+    # print('Optimal paths')
+    # pathsb = generate_optimal_paths(busb, Qeb)
+    # pathsd = generate_optimal_paths(busd, Qed)
 
-    # plot the results
-    print('Plotting')
-    figsb = plot_Q_stuff(Qb, As, Vs, pathsb, busb, explb)
-    figsd = plot_Q_stuff(Qd, As, Vs, pathsd, busd, expld)
+    # # plot the results
+    # print('Plotting')
+    # figsb = plot_Q_stuff(Qb, As, Vs, pathsb, busb, explb)
+    # figsd = plot_Q_stuff(Qd, As, Vs, pathsd, busd, expld)
 
-    return figsb, figsd
+    # return figsb, figsd
+
 
 if __name__ == '__main__':
     os.system('clear')
