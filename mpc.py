@@ -608,11 +608,11 @@ def create_Q_table():
     ########################################################################################################################
     ########################################################################################################################
     ### PARAMETERS #########################################################################################################
-    AGRID = 24 # number of grid points angles
-    VGRID = 25 # number of grid points velocities
-    UGRID = 9 # number of grid points for the control inputs
+    AGRID = 54 # number of grid points angles 24
+    VGRID = AGRID+1 # number of grid points velocities 25
+    UGRID = 19 # number of grid points for the control inputs
     MAXV = 16 # [rad/s] maximum angular velocity
-    MAXU = 6 # maximum control input
+    MAXU = 10 # maximum control input
 
     AMIN, AMAX = -π, π-(2*π)/AGRID # minimum and maximum angles
     VMIN, VMAX = -MAXV, MAXV # minimum and maximum velocities
@@ -638,7 +638,7 @@ def create_Q_table():
     ########################################################################################################################
     ########################################################################################################################
     
-    def test2():
+    def test2(): 
         print(f'us: {us}')
         # lets plot a graph of visitable nodes
         fig, ax = plt.subplots(1,1, figsize=(10,10))
@@ -646,26 +646,36 @@ def create_Q_table():
         for a in As:
             for v in Vs: ax.plot(a,v, 'ko', markersize=1)
         x0 = np.array([0,0]) # initial state
-        DEPTH = 5
+        DEPTH = 100
         # define DEPTH random colors
         colors = np.random.rand(DEPTH, 3)
-        curr_states = [get_closest(x0)[1]] # current states
+        curr_states = [get_closest(x0)] # current states
+        visited = np.zeros_like(Q) # visited states
+        Qt = np.zeros_like(Q) # temporary Q function
         for d in (range(DEPTH)): 
             print(f'depth: {d}/{DEPTH}, states: {len(curr_states)}    ')
             next_states = []
-            for xg in curr_states:
+            for xgi, xg in curr_states:
+                if visited[xgi]: continue
+                visited[xgi] = True
+                Qt[xgi] = d # temporary Q function
                 #plot a point of the current state
                 x, y = xg
                 ax.plot(x, y, 'o', color=colors[d])
                 reach, _, _ = reachable_states(xg, us)
-                reach_grid = [get_closest(x)[1] for x in reach]
-                for nxg in reach_grid:
-                    xgi, xg = get_closest(nxg)
-                    #add a line connecting xg to nxg
-                    ax.plot([x, xg[0]], [y, xg[1]], color=colors[d])
-                    next_states.append(xg)
+                reach_grid = [get_closest(x) for x in reach]
+                for nxgi, nxg in reach_grid:
+                    # if np.abs(nxg[0]-xg[0]) < 1: 
+                    #     ax.plot([x, nxg[0]], [y, nxg[1]], color=colors[d])
+                    next_states.append((nxgi, nxg))
             curr_states = next_states
-        return fig
+        ax.grid(True)
+        ax.set_xticks(np.arange(-π, π+1, π/2))
+        ax.set_xticklabels(['-π', '-π/2', '0', 'π/2', 'π'])
+
+        fig2 = plot_Q_stuff(Qt, As, Vs, None, None, None)
+
+        return fig, fig2
 
     f = test2()
 
