@@ -608,7 +608,7 @@ def create_Q_table():
     ########################################################################################################################
     ########################################################################################################################
     ### PARAMETERS #########################################################################################################
-    AGRID = 54 # number of grid points angles 24
+    AGRID = 74 # number of grid points angles 24
     VGRID = AGRID+1 # number of grid points velocities 25
     UGRID = 19 # number of grid points for the control inputs
     MAXV = 16 # [rad/s] maximum angular velocity
@@ -646,9 +646,9 @@ def create_Q_table():
         for a in As:
             for v in Vs: ax.plot(a,v, 'ko', markersize=1)
         x0 = np.array([0,0]) # initial state
-        DEPTH = 1000
+        DEPTH = 90
         # define DEPTH random colors
-        colors = np.random.rand(DEPTH, 3)
+        colors = plt.cm.viridis(np.linspace(1, 0, DEPTH))
         curr_states = [get_closest(x0)] # current states
         visited = np.zeros_like(Q) # visited states
         Qt = 100+ np.zeros_like(Q) # temporary Q function
