@@ -462,6 +462,14 @@ def create_Q_table():
         best_i = np.argmin(costs)
         return us[uis[best_i]]
 
+    def get_coeherent_input_idxs(ui, us, dist=1):
+        '''Get the coeherent inputs from the given input
+        coeherent meaning if we are pushing we keep pushing, if we are pulling we keep pulling'''
+        new_uis = [ui + i for i in range(-dist, dist+1) if 0 <= ui + i < len(us)]
+        return new_uis
+
+
+
 
     def plot_Q_stuff(Q, As, Vs, paths, bus, explored):
         if Q is not None:
@@ -577,7 +585,7 @@ def create_Q_table():
             else: return # no improvement, return
             # explore the tree
             c = Q[xg_idx] # current Q value
-            reach, tcs, ius = reachable_states(x, us) # reachable states
+            reach, tcs, ius = reachable_states(x, US) # reachable states
             for nx, tc, iu in zip(reach, tcs, ius): # cycle through the reachable states
                 csi = c + tc #+ np.abs(us[iu])/MAXU # cost of the state after tc steps
                 explore_tree(nx, depth+1, csi) # explore the tree
@@ -628,17 +636,17 @@ def create_Q_table():
     Vs = np.linspace(-MAXV, MAXV, VGRID) # velocities
     DGA = dist_angle(As[0], As[1]) # distance between grid points for the angles
     DGV = dist_velocity(Vs[0], Vs[1]) # distance between grid points for the velocities
-    us = np.linspace(-MAXU, MAXU, UGRID) # control inputs   
+    US = np.linspace(-MAXU, MAXU, UGRID) # control inputs   
     if SP: Q = np.ones((AGRID, VGRID)) * np.inf # Q function
     if DP: Q = np.ones((AGRID, AGRID, VGRID, VGRID)) * np.inf # Q function
     Qe = np.zeros_like(Q) # Q function explored
-    print(f'Q shape: {Q.shape}, us shape: {us.shape}, GP: {GP}, MAX_DEPTH_DF: {MAX_DEPTH_DF}, MAX_DEPTH_BF: {MAX_DEPTH_BF}')
+    print(f'Q shape: {Q.shape}, US shape: {US.shape}, GP: {GP}, MAX_DEPTH_DF: {MAX_DEPTH_DF}, MAX_DEPTH_BF: {MAX_DEPTH_BF}')
     
     ########################################################################################################################
     ########################################################################################################################
     
     def test2(): 
-        print(f'us: {us}')
+        print(f'US: {US}')
         # lets plot a graph of visitable nodes
         fig, ax = plt.subplots(1,1, figsize=(10,10))
         #plot the grid with small black dots
@@ -662,7 +670,7 @@ def create_Q_table():
                 #plot a point of the current state
                 x, y = xg
                 ax.plot(x, y, 'o', color=colors[d])
-                reach, _, _ = reachable_states(xg, us)
+                reach, _, _ = reachable_states(xg, US)
                 reach_grid = [get_closest(x) for x in reach]
                 for nxgi, nxg in reach_grid:
                     # if np.abs(nxg[0]-xg[0]) < 1: 
@@ -683,9 +691,9 @@ def create_Q_table():
         x0 = np.array([0,0]) # initial state
         small = 1e-6
         square = np.array([[-small,-small], [small,-small], [small,small], [-small,small]])
-        print(f'us: {us}')
+        print(f'US: {US}')
         # lets plot a graph of visitable nodes
-        DEPTH = 12
+        DEPTH = 8
         MAX_STATES = 1000
         fig, ax = plt.subplots(1,1, figsize=(10,10))
         T = 0.1 #[s] time to simulate 
@@ -693,7 +701,7 @@ def create_Q_table():
         print(f't: {t}')
         # define DEPTH random colors
         colors = plt.cm.viridis(np.linspace(1, 0, DEPTH+1))
-        curr_states, curr_uis = [x0], [len(us)//2]# current states, current control inputs indexes
+        curr_states, curr_uis = [x0], [len(US)//2]# current states, current control inputs indexes
         hull = ConvexHull([x+x0 for x in square]) # convex hull
         for d in (range(DEPTH)):
             print(f'depth: {d}/{DEPTH}, states: {len(curr_states)}    ')
@@ -702,10 +710,11 @@ def create_Q_table():
             ax.add_patch(plt.Polygon(verts[:,:2], edgecolor=colors[d], fill=False))
             for x, ui in zip(curr_states, curr_uis):
                 ax.plot(x[0], x[1], 'o', color=colors[d], markersize=2) #*(DEPTH-d))
-                uis = [max(0, ui-1), ui, min(len(us)-1, ui+1)] # continuity of the control inputs
-                # for u in us: # all control inputs
+                uis = get_coeherent_input_idxs(ui, US, dist=1) # coeherent inputs
+                # print(f'ui: {ui} uis: {uis}')
+                # for u in US: # all control inputs
                 for i in uis: # continuity of the control inputs
-                    u = us[i]
+                    u = US[i]
                     nx = simulate(x, t, np.ones_like(t)*u)[-1]
                     if Delaunay(verts).find_simplex(nx) > 0: continue  #check if nx is inside the convex hull
                     next_states.append(nx), next_uis.append(i)
@@ -727,7 +736,7 @@ def create_Q_table():
     
                 
 
-    f = test2() 
+    # f = test2() 
     f = test3()
 
     # x0 = np.array([0,0]) # initial state
@@ -744,8 +753,8 @@ def create_Q_table():
 
     # # find the optimal control inputs
     # print('Optimal inputs')
-    # busb = find_optimal_inputs(Qb, Qeb, As, Vs, us)
-    # busd = find_optimal_inputs(Qd, Qed, As, Vs, us)
+    # busb = find_optimal_inputs(Qb, Qeb, As, Vs, US)
+    # busd = find_optimal_inputs(Qd, Qed, As, Vs, US)
 
     # # generate optimal paths
     # print('Optimal paths')
