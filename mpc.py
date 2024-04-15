@@ -10,7 +10,7 @@ from numpy.random import uniform, normal
 from time import time
 import multiprocess as mp #note: not multiprocessing
 import os
-np.set_printoptions(precision=3, suppress=True) #set numpy print options
+# np.set_printoptions(precision=3, suppress=True) #set numpy print options
 # os.environ['KMP_DUPLICATE_LIB_OK']='True' # for the multiprocessing to work on MacOS
 # np.random.seed(0)
  
@@ -18,7 +18,7 @@ SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
 M = SP
-OPT_FREQ = 60 # frequency of the time steps optimization
+OPT_FREQ = 2*60 # frequency of the time steps optimization
 SIM_FREQ = 10*OPT_FREQ # frequency of the time steps simulation
 assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 CLIP = True # clip the control input
@@ -402,7 +402,8 @@ def plot_cost_function():
 def create_Q_table():
     def dist_angle(a1, a2):
         '''Calculate the distance between two angles'''
-        return np.abs(np.arctan2(np.sin(a1-a2), np.cos(a1-a2))) # / π
+        # return np.abs(np.arctan2(np.sin(a1-a2), np.cos(a1-a2))) # / π
+        return np.abs(a1-a2) # / π
     
     def dist_velocity(v1, v2):
         '''Calculate the distance between two velocities'''
@@ -411,7 +412,7 @@ def create_Q_table():
     def is_outside(x):
         '''Check if the state is outside the grid
         split x into angles and velocities, angles are first half of x'''
-        return np.any(x[N//2:] < VMIN-DGV/2) or np.any(x[N//2:] > VMAX+DGV/2)
+        return np.any(x[N//2:] < -MAXV-DGV/2) or np.any(x[N//2:] > MAXV+DGV/2)
 
     def get_xgrid(idxs):
         '''Get the state from the grid'''
@@ -431,7 +432,7 @@ def create_Q_table():
         return (is_outside, is_stable, new_state, steps/SIM_FREQ)'''
         xu = x.copy() # current state
         for ss in range(int(t*SIM_FREQ)): # simulate the pendulum
-            xu = step(xu, u, dt) # simulation step
+            xu = step(xu, u, DT) # simulation step
             if is_outside(xu): return True, False, xu, ss/SIM_FREQ # out of bounds, break
             da = dist_angle(xu[:N//2], xg[:N//2])
             dv = dist_velocity(xu[N//2:], xg[N//2:])
@@ -527,13 +528,13 @@ def create_Q_table():
         # plot some optimal paths starting from some random states
         paths, pi = [], 0 # paths to ret, pi=path index
         while pi < 100: # generate 100 paths
-            x = np.array([uniform(AMIN, AMAX), uniform(VMIN, VMAX)]) # random state
+            x = np.array([uniform(-π, π), uniform(-MAXV, MAXV)]) # random state
             xgi, xg = get_closest(x) # closest grid point
             if not Qe[xgi]: continue # not explored
             path = [x] # path
             for i in range(3*SIM_FREQ): # simulate the pendulum
                 u = bus[xgi] # best control input
-                x = step(x, u, -dt) # simulation step NOTE: positive time
+                x = step(x, u, -DT) # simulation step NOTE: positive time
                 if is_outside(x): break 
                 xgi, _ = get_closest(x) # closest grid point
                 path.append(x)
@@ -552,7 +553,7 @@ def create_Q_table():
         - ignore already optimized states, somehow use depth to do it
         - use continuity constraint to ignore very different inputs
     - mix both the breadth search and the depth first method
-    - consider only contiguos steps, skipping steps is teoretically wrong
+    - consider only contiguos steps, skipping steps is teoretically wrong?
     - consider applying simple reinforcement learning pipeline (no reverse time) first
     '''
 
@@ -610,23 +611,21 @@ def create_Q_table():
     ### PARAMETERS #########################################################################################################
     AGRID = 74 # number of grid points angles 24
     VGRID = AGRID+1 # number of grid points velocities 25
-    UGRID = 19 # number of grid points for the control inputs
+    UGRID = 9 # number of grid points for the control inputs
     MAXV = 16 # [rad/s] maximum angular velocity
     MAXU = 8 # maximum control input
 
-    AMIN, AMAX = -π, π-(2*π)/AGRID # minimum and maximum angles
-    VMIN, VMAX = -MAXV, MAXV # minimum and maximum velocities
     if SP: N = 2 # number of states
     if DP: N = 4 # number of states
     GP = AGRID**(N//2)*VGRID**(N//2) # number of grid points
     MAX_DEPTH_DF = 400 # maximum depth of the tree for depth first
     MAX_DEPTH_BF = 10 # maximum depth of the tree for breadth first
-    dt = - 1 / OPT_FREQ # time step ( NOTE: negative for exploring from the instability point )
+    DT = - 1 / OPT_FREQ # time step ( NOTE: negative for exploring from the instability point )
     MAX_VISITS = 3e6 # number of states visited by the algorithm
-    if dt > 0: print('Warning: dt is positive')
+    if DT > 0: print('Warning: DT is positive')
 
-    As = np.linspace(AMIN, AMAX, AGRID) # angles
-    Vs = np.linspace(VMIN, VMAX, VGRID) # velocities
+    As = np.linspace(-π, π, AGRID, endpoint=False) # angles
+    Vs = np.linspace(-MAXV, MAXV, VGRID) # velocities
     DGA = dist_angle(As[0], As[1]) # distance between grid points for the angles
     DGV = dist_velocity(Vs[0], Vs[1]) # distance between grid points for the velocities
     us = np.linspace(-MAXU, MAXU, UGRID) # control inputs   
@@ -678,7 +677,58 @@ def create_Q_table():
 
         return fig, fig2
 
-    f = test2()
+    def test3():
+        from scipy.spatial import Delaunay, ConvexHull
+        # explore states without a grid
+        x0 = np.array([0,0]) # initial state
+        small = 1e-6
+        square = np.array([[-small,-small], [small,-small], [small,small], [-small,small]])
+        print(f'us: {us}')
+        # lets plot a graph of visitable nodes
+        DEPTH = 12
+        MAX_STATES = 1000
+        fig, ax = plt.subplots(1,1, figsize=(10,10))
+        T = 0.1 #[s] time to simulate 
+        t = np.linspace(-T, 0, int(T*SIM_FREQ))
+        print(f't: {t}')
+        # define DEPTH random colors
+        colors = plt.cm.viridis(np.linspace(1, 0, DEPTH+1))
+        curr_states, curr_uis = [x0], [len(us)//2]# current states, current control inputs indexes
+        hull = ConvexHull([x+x0 for x in square]) # convex hull
+        for d in (range(DEPTH)):
+            print(f'depth: {d}/{DEPTH}, states: {len(curr_states)}    ')
+            next_states, next_uis = [], []
+            verts = hull.points[hull.vertices].reshape(-1, N) # vertices of the convex hull
+            ax.add_patch(plt.Polygon(verts[:,:2], edgecolor=colors[d], fill=False))
+            for x, ui in zip(curr_states, curr_uis):
+                ax.plot(x[0], x[1], 'o', color=colors[d], markersize=2) #*(DEPTH-d))
+                uis = [max(0, ui-1), ui, min(len(us)-1, ui+1)] # continuity of the control inputs
+                # for u in us: # all control inputs
+                for i in uis: # continuity of the control inputs
+                    u = us[i]
+                    nx = simulate(x, t, np.ones_like(t)*u)[-1]
+                    if Delaunay(verts).find_simplex(nx) > 0: continue  #check if nx is inside the convex hull
+                    next_states.append(nx), next_uis.append(i)
+                    # ax.plot([x[0], nx[0]], [x[1], nx[1]], '--', color=colors[d], linewidth=1)
+            if len(next_states) > MAX_STATES: 
+                idxs = np.random.choice(len(next_states), MAX_STATES, replace=False)
+                next_states = [next_states[i] for i in idxs]
+            new_verts = np.vstack([verts, next_states])
+            hull = ConvexHull(new_verts) # convex hull
+            curr_states, curr_uis = next_states, next_uis
+        ax.set_xlabel('angle')
+        ax.set_ylabel('angular velocity')
+        # ax.set_xlim(-π, π)
+        # ax.set_ylim(-MAXV, MAXV)
+        # ax.set_xticks(np.arange(-π, π+1, π/2))
+        # ax.set_xticklabels(['-π', '-π/2', '0', 'π/2', 'π'])
+        ax.grid(True)
+        return fig
+    
+                
+
+    f = test2() 
+    f = test3()
 
     # x0 = np.array([0,0]) # initial state
     # # depth first
@@ -707,8 +757,7 @@ def create_Q_table():
     # figsb = plot_Q_stuff(Qb, As, Vs, pathsb, busb, explb)
     # figsd = plot_Q_stuff(Qd, As, Vs, pathsd, busd, expld)
 
-    # return figsb, figsd
-
+    return None
 
 if __name__ == '__main__':
     os.system('clear')
