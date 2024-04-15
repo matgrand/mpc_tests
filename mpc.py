@@ -444,14 +444,17 @@ def create_Q_table():
             if not in_a or not in_v: return False, False, xu, ss/SIM_FREQ # we arrived at a new grid point
         return False, True, xu, ss/SIM_FREQ # we are stable, no new states reached
 
-    def reachable_states(x, us, t=1.0):  
+    def reachable_states(x, us, iu=None, t=1.0):  
         '''Get the reachable states from the current state
         return (reachable states from current state, time steps cost, indexes of the control inputs)'''
         reachable, costs, idxs = [],[],[] # reachable states and costs
-        for iu, u in enumerate(us):
+        if iu is not None: ius = get_coeherent_input_idxs(iu, us) # coeherent inputs
+        else: ius = range(len(us)) # all inputs
+        for i in ius:
+            u = us[i] # control input
             is_outside, is_stable, nx, cu = reach_next(x, x, u, t)
             if is_outside or is_stable: continue
-            reachable.append(nx), costs.append(cu), idxs.append(iu)
+            reachable.append(nx), costs.append(cu), idxs.append(i)
         return reachable, costs, idxs
 
     def get_best_input(x, us):
@@ -568,7 +571,7 @@ def create_Q_table():
     def explore_depth_first(Q, Qe, x0):
         
         explored, depths = [],[] #explored states and depths reached
-        def explore_tree(x, depth, xc, idxs=None): # x: current state, depth: depth, xc: cost, idxs: grid indexes
+        def explore_tree(x, depth, xc, iu, idxs=None): # x: current state, depth: depth, xc: cost, idxs: grid indexes
             '''Explore the tree of states and control inputs'''
             if depth == MAX_DEPTH_DF: return # maximum depth reached
             if is_outside(x): return # out of bounds, return
@@ -585,10 +588,10 @@ def create_Q_table():
             else: return # no improvement, return
             # explore the tree
             c = Q[xg_idx] # current Q value
-            reach, tcs, ius = reachable_states(x, US) # reachable states
+            reach, tcs, ius = reachable_states(x, US, iu) # reachable states
             for nx, tc, iu in zip(reach, tcs, ius): # cycle through the reachable states
                 csi = c + tc #+ np.abs(us[iu])/MAXU # cost of the state after tc steps
-                explore_tree(nx, depth+1, csi) # explore the tree
+                explore_tree(nx, depth+1, iu, csi) # explore the tree
             return 
         
         explore_tree(x0, 0, 0)
@@ -596,21 +599,21 @@ def create_Q_table():
     
     def explore_breadth_firts(Q, Qe, x0):
         explored = [] # explored states
-        curr_states, curr_costs = [x0], [0] # current states and costs
+        curr_states, curr_costs, curr_ius = [x0], [0], [[len(US)//2]] # current states and costs
         for d in (range(MAX_DEPTH_BF)): 
             print(f'depth: {d}/{MAX_DEPTH_BF}, states: {len(curr_states)}, costs: {len(curr_costs)}, expl:{100*np.sum(Qe)/GP:.1f} %    ')
-            next_states, next_costs = [], [] # next states and costs
-            for x, c in zip(curr_states, curr_costs):
+            next_states, next_costs, next_ius = [], [], [] # next state, costs and input indexes
+            for x, c, iu in zip(curr_states, curr_costs, ):
                 explored.append(x) # save the explored states
                 if len(explored) > MAX_VISITS: return Q, Qe, explored # maximum number of visited states reached
                 xgi, xg = get_closest(x) # closest grid point
                 Qe[xgi] = True # mark as explored
                 if c < Q[xgi]: Q[xgi] = c # update the Q function
                 else: continue # no improvement, continue
-                reach, tcs, ius = reachable_states(x, us)
+                reach, tcs, ius = reachable_states(x, US, iu)
                 for nx, tc, iu in zip(reach, tcs, ius):
                     csi = c + tc #+ np.abs(us[iu])/MAXU # cost of the state after tc steps
-                    next_states.append(nx), next_costs.append(csi)
+                    next_states.append(nx), next_costs.append(csi), next_ius.append(iu)
             curr_states, curr_costs = next_states, next_costs
         return Q, Qe, explored
     
@@ -711,9 +714,7 @@ def create_Q_table():
             for x, ui in zip(curr_states, curr_uis):
                 ax.plot(x[0], x[1], 'o', color=colors[d], markersize=2) #*(DEPTH-d))
                 uis = get_coeherent_input_idxs(ui, US, dist=1) # coeherent inputs
-                # print(f'ui: {ui} uis: {uis}')
-                # for u in US: # all control inputs
-                for i in uis: # continuity of the control inputs
+                for i in uis: 
                     u = US[i]
                     nx = simulate(x, t, np.ones_like(t)*u)[-1]
                     if Delaunay(verts).find_simplex(nx) > 0: continue  #check if nx is inside the convex hull
@@ -736,7 +737,7 @@ def create_Q_table():
     
                 
 
-    # f = test2() 
+    f = test2() 
     f = test3()
 
     # x0 = np.array([0,0]) # initial state
