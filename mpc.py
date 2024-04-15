@@ -616,11 +616,11 @@ def create_Q_table():
     ########################################################################################################################
     ########################################################################################################################
     ### PARAMETERS #########################################################################################################
-    AGRID = 34 # number of grid points angles 24
+    AGRID = 8 # number of grid points angles 24
     VGRID = AGRID+1 # number of grid points velocities 25
-    UGRID = 19 # number of grid points for the control inputs
-    MAXV = 16 # [rad/s] maximum angular velocity
-    MAXU = 4 # maximum control input
+    UGRID = 5 # number of grid points for the control inputs
+    MAXV = 10 # [rad/s] maximum angular velocity
+    MAXU = 12 # maximum control input
 
     if SP: N = 2 # number of states
     if DP: N = 4 # number of states
@@ -629,7 +629,7 @@ def create_Q_table():
     MAX_DEPTH_BF = 100 # maximum depth of the tree for breadth first
     DT = - 1 / OPT_FREQ # time step ( NOTE: negative for exploring from the instability point )
     MAX_VISITS = 3e6 # number of states visited by the algorithm
-    COHERENT_INPUS = False # use coeherent inputs
+    COHERENT_INPUS = True # use coeherent inputs
     if DT > 0: print('Warning: DT is positive')
 
     As = np.linspace(-π, π, AGRID, endpoint=False) # angles
@@ -650,8 +650,7 @@ def create_Q_table():
         # lets plot a graph of visitable nodes
         fig, ax = plt.subplots(1,1, figsize=(10,10))
         #plot the grid with small black dots
-        for a in As:
-            for v in Vs: ax.plot(a,v, 'ko', markersize=1)
+        [ax.plot(a,v, 'ko', markersize=1) for a in As for v in Vs]
         x0 = np.array([0,0]) # initial state
         DEPTH = 190
         # define DEPTH random colors
@@ -734,37 +733,80 @@ def create_Q_table():
         ax.grid(True)
         return fig
     
+    def test_explore_grid():
+        print(f'US: {US}')
+        for u in tqdm(US):
+            fig, ax = plt.subplots(1,1, figsize=(10,10))
+            [ax.plot(a,v, 'ko', markersize=1) for a in As for v in Vs] # plot the grid
+            SAMPLES = 100
+            for a in As:
+                for v in Vs:
+                    das = uniform(-DGA/2, DGA/2, SAMPLES) # random angles
+                    dvs = uniform(-DGV/2, DGV/2, SAMPLES)
+                    nnas, nnvs = [],[]
+                    nas, nvs = [],[]
+                    for da, dv in zip(das, dvs):
+                        na, nv = a+da, v+dv
+                        na = (na + π) % (2*π) - π # wrap around
+                        # ax.plot(na, nv, 'ro', markersize=1)
+                        x0 = np.array([na, nv])
+                        t = 0.1
+                        t = np.linspace(-t, 0, int(t*OPT_FREQ))
+                        nna, nnv = simulate(x0, t, u*np.ones_like(t))[-1]
+                        if np.abs(nna-na) > π: continue
+                        nnas.append(nna), nnvs.append(nnv), nas.append(na), nvs.append(nv)
+                    nnas, nnvs = np.array(nnas), np.array(nnvs)
+                    nas, nvs = np.array(nas), np.array(nvs)
+                    # get lengts of the paths
+                    # lens = np.sqrt((nnas-nas)**2 + (nnvs-nvs)**2)
+                    lens = np.sqrt((nnvs-nvs)**2)
+                    # plot the paths, use colors to show the length
+                    colors = plt.cm.viridis(lens/np.max(lens))
+                    for na, nv, nna, nnv, c in zip(nas, nvs, nnas, nnvs, colors):
+                        # plot a dashed from na to nna
+                        ax.plot([na, nna], [nv, nnv], '-', color=c, linewidth=1)
+            ax.set_xlabel('angle')  
+            ax.set_ylabel('angular velocity')
+            ax.set_title(f'u: {u}')
+            ax.grid(True)
+            ax.set_xticks(np.linspace(-π, π, 9))
+            ax.set_xticklabels(['-π', '-3π/4', '-π/2', '-π/4', '0', 'π/4', 'π/2', '3π/4', 'π'])
+
+        
+
+        return fig
                 
 
-    # f = test_explore_space() 
+    # f = test_explore_space()
     # f = test_gridless()
+    f = test_explore_grid()
 
-    x0 = np.array([0,0]) # initial state
-    # depth first
-    print('Depth first')
-    Qb, Qeb = Q.copy(), Qe.copy()
-    Qb, Qeb, explb = explore_depth_first(Qb, Qeb, x0)
-    print(f'\nexpl: {100*np.sum(Qeb)/GP:.1f}%, vis: {len(explb)}')
-    # breadth first
-    print('Breadth first')
-    Qd, Qed = Q.copy(), Qe.copy()
-    Qd, Qed, expld = explore_breadth_firts(Qd, Qed, x0)
-    print(f'\nexpl: {100*np.sum(Qed)/GP:.1f}%, vis: {len(expld)}')
+    # x0 = np.array([0,0]) # initial state
+    # # depth first
+    # print('Depth first')
+    # Qb, Qeb = Q.copy(), Qe.copy()
+    # Qb, Qeb, explb = explore_depth_first(Qb, Qeb, x0)
+    # print(f'\nexpl: {100*np.sum(Qeb)/GP:.1f}%, vis: {len(explb)}')
+    # # breadth first
+    # print('Breadth first')
+    # Qd, Qed = Q.copy(), Qe.copy()
+    # Qd, Qed, expld = explore_breadth_firts(Qd, Qed, x0)
+    # print(f'\nexpl: {100*np.sum(Qed)/GP:.1f}%, vis: {len(expld)}')
 
-    # find the optimal control inputs
-    print('Optimal inputs')
-    busb = find_optimal_inputs(Qb, Qeb, As, Vs, US)
-    busd = find_optimal_inputs(Qd, Qed, As, Vs, US)
+    # # find the optimal control inputs
+    # print('Optimal inputs')
+    # busb = find_optimal_inputs(Qb, Qeb, As, Vs, US)
+    # busd = find_optimal_inputs(Qd, Qed, As, Vs, US)
 
-    # generate optimal paths
-    print('Optimal paths')
-    pathsb = generate_optimal_paths(busb, Qeb)
-    pathsd = generate_optimal_paths(busd, Qed)
+    # # generate optimal paths
+    # print('Optimal paths')
+    # pathsb = generate_optimal_paths(busb, Qeb)
+    # pathsd = generate_optimal_paths(busd, Qed)
 
-    # plot the results
-    print('Plotting')
-    figsb = plot_Q_stuff(Qb, As, Vs, pathsb, busb, explb)
-    figsd = plot_Q_stuff(Qd, As, Vs, pathsd, busd, expld)
+    # # plot the results
+    # print('Plotting')
+    # figsb = plot_Q_stuff(Qb, As, Vs, pathsb, busb, explb)
+    # figsd = plot_Q_stuff(Qd, As, Vs, pathsd, busd, expld)
 
     return None
 
