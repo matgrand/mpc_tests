@@ -6,6 +6,7 @@ g = 9.81 # [m/s^2] gravity
 l = 1 # [m] length of the pendulum
 m = 1 # [kg] mass of the pendulum
 μ = 0.4 # [kg/s] damping coefficient
+WRAP_AROUND = True # wrap the angle to [-π, π]
 
 if µ < 0: print('Warning: the damping coefficient is negative')
 
@@ -44,7 +45,7 @@ def step(x, u, dt):
     θ, dθ = x # split the state vector
     dθ = dθ + fddθ(θ, dθ, u)[0]*dt # integrate the acceleration
     θ = θ + dθ*dt # integrate the velocity
-    # θ = (θ+π) % (2*π) - π # normalize the angle to [-π, π]
+    if WRAP_AROUND: θ = (θ+π) % (2*π) - π # normalize the angle to [-π, π]
     return np.array([θ, dθ]) # new state vector
 
 if __name__ == '__main__':

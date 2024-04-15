@@ -402,8 +402,8 @@ def plot_cost_function():
 def create_Q_table():
     def dist_angle(a1, a2):
         '''Calculate the distance between two angles'''
-        # return np.abs(np.arctan2(np.sin(a1-a2), np.cos(a1-a2))) # / π
-        return np.abs(a1-a2) # / π
+        if WRAP_AROUND: return np.abs(np.arctan2(np.sin(a1-a2), np.cos(a1-a2))) # / π
+        else: np.abs(a1-a2) # / π
     
     def dist_velocity(v1, v2):
         '''Calculate the distance between two velocities'''
@@ -468,11 +468,8 @@ def create_Q_table():
     def get_coeherent_input_idxs(ui, us, dist=1):
         '''Get the coeherent inputs from the given input
         coeherent meaning if we are pushing we keep pushing, if we are pulling we keep pulling'''
-        new_uis = [ui + i for i in range(-dist, dist+1) if 0 <= ui + i < len(us)]
-        return new_uis
-
-
-
+        if COHERENT_INPUS: return [ui + i for i in range(-dist, dist+1) if 0 <= ui + i < len(us)]
+        else: return range(len(us))
 
     def plot_Q_stuff(Q, As, Vs, paths, bus, explored):
         if Q is not None:
@@ -491,7 +488,7 @@ def create_Q_table():
             ax1.set_zlabel('cost')
         else: fig1 = None
 
-        if bus is not None:
+        if bus is not None and False:
             # plot the best control inputs
             bus = bus.T
             fig2 = plt.figure(figsize=(10,10))
@@ -511,7 +508,7 @@ def create_Q_table():
         else: fig0 = None
 
         # plot the sequence of visited states
-        if explored is not None:
+        if explored is not None and False:
             fig3, ax = plt.subplots(1,1, figsize=(10,10))
             xs = np.array(explored).T
             xs = xs[:,:10000]
@@ -566,10 +563,10 @@ def create_Q_table():
     - mix both the breadth search and the depth first method
     - consider only contiguos steps, skipping steps is teoretically wrong?
     - consider applying simple reinforcement learning pipeline (no reverse time) first
+    - create a smart grid using simulation to find the best grid points
     '''
 
     def explore_depth_first(Q, Qe, x0):
-        
         explored, depths = [],[] #explored states and depths reached
         def explore_tree(x, depth, xc, iu, idxs=None): # x: current state, depth: depth, xc: cost, idxs: grid indexes
             '''Explore the tree of states and control inputs'''
@@ -591,19 +588,18 @@ def create_Q_table():
             reach, tcs, ius = reachable_states(x, US, iu) # reachable states
             for nx, tc, iu in zip(reach, tcs, ius): # cycle through the reachable states
                 csi = c + tc #+ np.abs(us[iu])/MAXU # cost of the state after tc steps
-                explore_tree(nx, depth+1, iu, csi) # explore the tree
+                explore_tree(nx, depth+1, csi, iu) # explore the tree
             return 
-        
-        explore_tree(x0, 0, 0)
+        explore_tree(x0, 0, 0, iu=len(US)//2)
         return Q, Qe, explored
     
     def explore_breadth_firts(Q, Qe, x0):
         explored = [] # explored states
-        curr_states, curr_costs, curr_ius = [x0], [0], [[len(US)//2]] # current states and costs
+        curr_states, curr_costs, curr_ius = [x0], [0], [len(US)//2] # current states and costs
         for d in (range(MAX_DEPTH_BF)): 
             print(f'depth: {d}/{MAX_DEPTH_BF}, states: {len(curr_states)}, costs: {len(curr_costs)}, expl:{100*np.sum(Qe)/GP:.1f} %    ')
             next_states, next_costs, next_ius = [], [], [] # next state, costs and input indexes
-            for x, c, iu in zip(curr_states, curr_costs, ):
+            for x, c, iu in zip(curr_states, curr_costs, curr_ius):
                 explored.append(x) # save the explored states
                 if len(explored) > MAX_VISITS: return Q, Qe, explored # maximum number of visited states reached
                 xgi, xg = get_closest(x) # closest grid point
@@ -614,25 +610,26 @@ def create_Q_table():
                 for nx, tc, iu in zip(reach, tcs, ius):
                     csi = c + tc #+ np.abs(us[iu])/MAXU # cost of the state after tc steps
                     next_states.append(nx), next_costs.append(csi), next_ius.append(iu)
-            curr_states, curr_costs = next_states, next_costs
+            curr_states, curr_costs, curr_ius = next_states, next_costs, next_ius
         return Q, Qe, explored
     
     ########################################################################################################################
     ########################################################################################################################
     ### PARAMETERS #########################################################################################################
-    AGRID = 74 # number of grid points angles 24
+    AGRID = 34 # number of grid points angles 24
     VGRID = AGRID+1 # number of grid points velocities 25
-    UGRID = 9 # number of grid points for the control inputs
+    UGRID = 19 # number of grid points for the control inputs
     MAXV = 16 # [rad/s] maximum angular velocity
-    MAXU = 8 # maximum control input
+    MAXU = 4 # maximum control input
 
     if SP: N = 2 # number of states
     if DP: N = 4 # number of states
     GP = AGRID**(N//2)*VGRID**(N//2) # number of grid points
     MAX_DEPTH_DF = 400 # maximum depth of the tree for depth first
-    MAX_DEPTH_BF = 10 # maximum depth of the tree for breadth first
+    MAX_DEPTH_BF = 100 # maximum depth of the tree for breadth first
     DT = - 1 / OPT_FREQ # time step ( NOTE: negative for exploring from the instability point )
     MAX_VISITS = 3e6 # number of states visited by the algorithm
+    COHERENT_INPUS = False # use coeherent inputs
     if DT > 0: print('Warning: DT is positive')
 
     As = np.linspace(-π, π, AGRID, endpoint=False) # angles
@@ -648,7 +645,7 @@ def create_Q_table():
     ########################################################################################################################
     ########################################################################################################################
     
-    def test2(): 
+    def test_explore_space(): 
         print(f'US: {US}')
         # lets plot a graph of visitable nodes
         fig, ax = plt.subplots(1,1, figsize=(10,10))
@@ -656,39 +653,41 @@ def create_Q_table():
         for a in As:
             for v in Vs: ax.plot(a,v, 'ko', markersize=1)
         x0 = np.array([0,0]) # initial state
-        DEPTH = 90
+        DEPTH = 190
         # define DEPTH random colors
         colors = plt.cm.viridis(np.linspace(1, 0, DEPTH))
-        curr_states = [get_closest(x0)] # current states
+        curr_states, curr_ius = [get_closest(x0)], [len(US)//2]
         visited = np.zeros_like(Q) # visited states
-        Qt = 100+ np.zeros_like(Q) # temporary Q function
+        Qt = np.zeros_like(Q) # temporary Q function
         for d in (range(DEPTH)): 
             if len(curr_states) == 0: break # no more states to explore
             print(f'depth: {d}/{DEPTH}, states: {len(curr_states)}    ')
-            next_states = []
-            for xgi, xg in curr_states:
+            next_states, next_ius = [], []
+            for (xgi, xg), iu in zip(curr_states, curr_ius):
                 if visited[xgi]: continue
                 visited[xgi] = True
-                Qt[xgi] = d # temporary Q function
+                Qt[xgi] = d+1 # temporary Q function
                 #plot a point of the current state
                 x, y = xg
                 ax.plot(x, y, 'o', color=colors[d])
-                reach, _, _ = reachable_states(xg, US)
+                reach, _, _ = reachable_states(xg, US, iu)
                 reach_grid = [get_closest(x) for x in reach]
                 for nxgi, nxg in reach_grid:
-                    # if np.abs(nxg[0]-xg[0]) < 1: 
-                    #     ax.plot([x, nxg[0]], [y, nxg[1]], color=colors[d])
-                    next_states.append((nxgi, nxg))
-            curr_states = next_states
+                    next_states.append((nxgi, nxg)), next_ius.append(len(US)//2)
+            curr_states, curr_ius = next_states, next_ius
         ax.grid(True)
         ax.set_xticks(np.arange(-π, π+1, π/2))
         ax.set_xticklabels(['-π', '-π/2', '0', 'π/2', 'π'])
-
+        #set Qt to the maximum depth if Q is not visited
+        Qt = np.where(visited, Qt, d+2)
         fig2 = plot_Q_stuff(Qt, As, Vs, None, None, None)
 
         return fig, fig2
 
-    def test3():
+    def test_gridless():
+        if not COHERENT_INPUS:
+            print('\nFor test_gridless COHERENT_INPUS must be True, otherwise exponential growth too fast')
+            return None
         from scipy.spatial import Delaunay, ConvexHull
         # explore states without a grid
         x0 = np.array([0,0]) # initial state
@@ -737,35 +736,35 @@ def create_Q_table():
     
                 
 
-    f = test2() 
-    f = test3()
+    # f = test_explore_space() 
+    # f = test_gridless()
 
-    # x0 = np.array([0,0]) # initial state
-    # # depth first
-    # print('Depth first')
-    # Qb, Qeb = Q.copy(), Qe.copy()
-    # Qb, Qeb, explb = explore_depth_first(Qb, Qeb, x0)
-    # print(f'\nexpl: {100*np.sum(Qeb)/GP:.1f}%, vis: {len(explb)}')
-    # # breadth first
-    # print('Breadth first')
-    # Qd, Qed = Q.copy(), Qe.copy()
-    # Qd, Qed, expld = explore_breadth_firts(Qd, Qed, x0)
-    # print(f'\nexpl: {100*np.sum(Qed)/GP:.1f}%, vis: {len(expld)}')
+    x0 = np.array([0,0]) # initial state
+    # depth first
+    print('Depth first')
+    Qb, Qeb = Q.copy(), Qe.copy()
+    Qb, Qeb, explb = explore_depth_first(Qb, Qeb, x0)
+    print(f'\nexpl: {100*np.sum(Qeb)/GP:.1f}%, vis: {len(explb)}')
+    # breadth first
+    print('Breadth first')
+    Qd, Qed = Q.copy(), Qe.copy()
+    Qd, Qed, expld = explore_breadth_firts(Qd, Qed, x0)
+    print(f'\nexpl: {100*np.sum(Qed)/GP:.1f}%, vis: {len(expld)}')
 
-    # # find the optimal control inputs
-    # print('Optimal inputs')
-    # busb = find_optimal_inputs(Qb, Qeb, As, Vs, US)
-    # busd = find_optimal_inputs(Qd, Qed, As, Vs, US)
+    # find the optimal control inputs
+    print('Optimal inputs')
+    busb = find_optimal_inputs(Qb, Qeb, As, Vs, US)
+    busd = find_optimal_inputs(Qd, Qed, As, Vs, US)
 
-    # # generate optimal paths
-    # print('Optimal paths')
-    # pathsb = generate_optimal_paths(busb, Qeb)
-    # pathsd = generate_optimal_paths(busd, Qed)
+    # generate optimal paths
+    print('Optimal paths')
+    pathsb = generate_optimal_paths(busb, Qeb)
+    pathsd = generate_optimal_paths(busd, Qed)
 
-    # # plot the results
-    # print('Plotting')
-    # figsb = plot_Q_stuff(Qb, As, Vs, pathsb, busb, explb)
-    # figsd = plot_Q_stuff(Qd, As, Vs, pathsd, busd, expld)
+    # plot the results
+    print('Plotting')
+    figsb = plot_Q_stuff(Qb, As, Vs, pathsb, busb, explb)
+    figsd = plot_Q_stuff(Qd, As, Vs, pathsd, busd, expld)
 
     return None
 
