@@ -10,7 +10,7 @@ from numpy.random import uniform, normal
 from time import time
 import multiprocess as mp #note: not multiprocessing
 import os
-# np.set_printoptions(precision=3, suppress=True) #set numpy print options
+np.set_printoptions(precision=3, suppress=True) #set numpy print options
 # os.environ['KMP_DUPLICATE_LIB_OK']='True' # for the multiprocessing to work on MacOS
 # np.random.seed(0)
  
@@ -35,7 +35,7 @@ elif CDP: from cart_double_pendulum import *
 ########################################################################################################################
 AGRID = 88 # number of grid points angles 24
 VGRID = AGRID+1 # number of grid points velocities 25
-UGRID = 5 # number of grid points for the control inputs
+UGRID = 3 # number of grid points for the control inputs
 MAXV = 10 # [rad/s] maximum angular velocity
 MAXU = 6 # maximum control input
 
@@ -85,9 +85,9 @@ def get_closest(x, idxs=None): # ret (idxs, xgrid)
     ia, iv = np.argmin(da), np.argmin(dv)
     return (ia, iv), get_xgrid((ia, iv))
 
-def reach_next(x, xg, u, t=1.0):
+def reach_next(x, xg, u, t=1.0, dt=DT):
     '''Reach the next state given the control input
-    return (is_outside, is_stable, new_state, steps/SIM_FREQ)'''
+    @return (is_outside, is_stable, new_state, steps/SIM_FREQ)'''
     xu = x.copy() # current state
     for ss in range(int(t*SIM_FREQ)): # simulate the pendulum
         xu = step(xu, u, DT) # simulation step
@@ -102,24 +102,28 @@ def reach_next(x, xg, u, t=1.0):
         if not in_a or not in_v: return False, False, xu, ss/SIM_FREQ # we arrived at a new grid point
     return False, True, xu, ss/SIM_FREQ # we are stable, no new states reached
 
-def reachable_states(x, us, iu=None, t=1.0):  
+def reachable_states(x, us, iu=None, t=1.0, dt=DT):  
     '''Get the reachable states from the current state
-    return (reachable states from current state, time steps cost, indexes of the control inputs)'''
+    @return (reachable states from current state, time steps cost, indexes of the control inputs)'''
     reachable, costs, idxs = [],[],[] # reachable states and costs
     if iu is not None: ius = get_coeherent_input_idxs(iu, us) # coeherent inputs
     else: ius = range(len(us)) # all inputs
     for i in ius:
         u = us[i] # control input
-        is_outside, is_stable, nx, cu = reach_next(x, x, u, t)
+        is_outside, is_stable, nx, cu = reach_next(x, x, u, t, dt)
         if is_outside or is_stable: continue
         reachable.append(nx), costs.append(cu), idxs.append(i)
     return reachable, costs, idxs
 
-def get_best_input(x, us):
-    reachable, _, uis = reachable_states(x, us) # reachable states
+def get_best_input(Q, x, us, dt=DT):
+    reachable, uc, uis = reachable_states(x, us, dt) # reachable states
+    # print(f'reachable: {reachable}')
     xgis = [get_closest(x)[0] for x in reachable] # reachable grid states indexes
+    #check if all the xgis are the same
+    if len(xgis) == 0: return None
     costs = [Q[xgi] for xgi in xgis] # costs of the reachable states
-    if len(costs) == 0: return None
+    # add th cost of the control input
+    costs = np.array(costs) + np.abs(us[uis])/MAXU
     best_i = np.argmin(costs)
     return us[uis[best_i]]
 
@@ -147,7 +151,7 @@ def plot_Q_stuff(Q, As, Vs, paths, bus, explored):
         ax1.set_title('Q function')
     else: fig1 = None
 
-    if bus is not None and False:
+    if bus is not None:
         # plot the best control inputs
         bus = bus.T
         fig2 = plt.figure(figsize=(10,10))
@@ -188,7 +192,7 @@ def find_optimal_inputs(Q, Qe, As, Vs, us):
     for i, a in enumerate(tqdm(As)):
         for j, v in enumerate(Vs):
             if not Qe[i,j]: continue # not explored
-            bus[i,j] = get_best_input(np.array([a,v]), us)
+            bus[i,j] = get_best_input(Q, np.array([a,v]), us, -DT)
     return bus
 
 def generate_optimal_paths(bus, Qe):
@@ -281,40 +285,44 @@ def test_explore_space():
     #plot the grid with small black dots
     [ax.plot(a,v, 'ko', markersize=1) for a in As for v in Vs]
     x0 = np.array([0,0]) # initial state
-    DEPTH = 130
+    DEPTH = 230
     # define DEPTH random colors
     colors = plt.cm.viridis(np.linspace(1, 0, DEPTH))
     curr_states, curr_ius = [get_closest(x0)], [len(US)//2]
-    Qese = np.zeros_like(Q) # visited states
     Qes = np.zeros_like(Q) # temporary Q function
+    Qese = np.zeros_like(Q) # visited states
     for d in (range(DEPTH)): 
         if len(curr_states) == 0: break # no more states to explore
-        print(f'depth: {d}/{DEPTH}, states: {len(curr_states)}    ')
+        print(f'depth: {d}/{DEPTH}, states: {len(curr_states)}    ', end='\r')
         next_states, next_ius = [], []
         for (xgi, xg), iu in zip(curr_states, curr_ius):
-            if Qese[xgi]: continue
+            if Qese[xgi]: continue # already visited, skip
             Qese[xgi] = True
             Qes[xgi] = d+1 # temporary Q function
             #plot a point of the current state
-            x, y = xg
-            ax.plot(x, y, 'o', color=colors[d])
+            ax.plot(xg[0], xg[1], 'o', color=colors[d])
             reach, _, _ = reachable_states(xg, US, iu)
             reach_grid = [get_closest(x) for x in reach]
             for nxgi, nxg in reach_grid:
-                next_states.append((nxgi, nxg)), next_ius.append(len(US)//2)
+                next_states.append((nxgi, nxg)), next_ius.append(iu)
         curr_states, curr_ius = next_states, next_ius
+    print()
     ax.grid(True)
     ax.set_xticks(np.arange(-π, π+1, π/2))
     ax.set_xticklabels(['-π', '-π/2', '0', 'π/2', 'π'])
     #set Qes to the maximum depth if Q is not Qese
     Qes = np.where(Qese, Qes, d+2)
-
     # calculate the optimal control inputs
     bus = find_optimal_inputs(Qes, Qese, As, Vs, US)
     # generate the optimal paths
     paths = generate_optimal_paths(bus, Qese)
     # plot the results
     fig, fig2, _, _ = plot_Q_stuff(Qes, As, Vs, paths, bus, None)
+
+    # #animate the optimal paths
+    # if paths is not None:
+    #     fig3 = plot_state_trajectories(paths, figsize=(10,10), title='Optimal paths')
+
 
     return fig, fig2
 
@@ -411,7 +419,6 @@ def test_explore_grid():
 
     return fig
             
-
 if __name__ == '__main__':
     os.system('clear')
     main_start = time()
