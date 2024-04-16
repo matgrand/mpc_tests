@@ -329,7 +329,7 @@ def plot_double(x, t, u, T, V, figsize=(12,10)):
     ax[0].grid(True), ax[1].grid(True), ax[2].grid(True), ax[3].grid(True)
     plt.tight_layout()
 
-def plot_state_trajectories(xs, figsize=(8,8)):
+def plot_state_trajectories(xs, figsize=(8,8), title='State trajectories'):
     fig, ax = plt.subplots(figsize=figsize)
     #create colors
     colors = plt.cm.viridis(np.linspace(0, 1, len(xs)))
@@ -342,11 +342,10 @@ def plot_state_trajectories(xs, figsize=(8,8)):
         #split the angles in the interruptions
         θs = np.split(θs, interruptions+1)
         dθs = np.split(dθs, interruptions+1)
-
         #plot the trajectories
         for θ, dθ in zip(θs, dθs):
             ax.plot(θ, dθ, '-', lw=1, color=c)
-
+    ax.set_title(title)
     ax.set_xlim(0, 2*π)
     ax.set_xlabel('angle')
     ax.set_ylabel('angular velocity')

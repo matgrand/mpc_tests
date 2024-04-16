@@ -21,10 +21,6 @@ M = SP
 OPT_FREQ = 2*60 # frequency of the time steps optimization
 SIM_FREQ = 10*OPT_FREQ # frequency of the time steps simulation
 assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
-CLIP = True # clip the control input
-INPUT_CLIP = 6 # clip the control input (if < 9.81, it needs the swing up)
-MIN_IMPROVEMENT = 1e-8 # minimum improvement for the gradient descent
-SGD = .5 # stochastic gradient descent percentage of the gradient
 
 if M == SP: SP, DP, CDP = True, False, False
 elif M == DP: SP, DP, CDP = False, True, False
@@ -121,6 +117,7 @@ def create_Q_table():
             ax1.set_xlabel('angle')
             ax1.set_ylabel('angular velocity')
             ax1.set_zlabel('cost')
+            ax1.set_title('Q function')
         else: fig1 = None
 
         if bus is not None and False:
@@ -133,13 +130,14 @@ def create_Q_table():
             ax2.set_xlabel('angle')
             ax2.set_ylabel('angular velocity')
             ax2.set_zlabel('control input')
+            ax2.set_title('best control input')
         else: fig2 = None
 
         # plot the paths
         if paths is not None:
             pats = [np.array(p).T for p in paths]
             print(f'paths[0]: {pats[0].shape}')
-            fig0 = plot_state_trajectories(paths, figsize=(10,10))
+            fig0 = plot_state_trajectories(paths, figsize=(10,10), title='Optimal paths')
         else: fig0 = None
 
         # plot the sequence of visited states
@@ -152,6 +150,7 @@ def create_Q_table():
             ax.plot(xs[0][-1], xs[1][-1], 'ro', markersize=2)
             ax.set_xlabel('angle')
             ax.set_ylabel('angular velocity')
+            ax.set_title('explored states')
             ax.grid()
         else: fig3 = None
         return fig1, fig2, fig0, fig3
@@ -159,7 +158,7 @@ def create_Q_table():
     def find_optimal_inputs(Q, Qe, As, Vs, us):
         #find the best inputs for each state
         bus = np.zeros_like(Q)
-        for i, a in tqdm(enumerate(As)):
+        for i, a in enumerate(tqdm(As)):
             for j, v in enumerate(Vs):
                 if not Qe[i,j]: continue # not explored
                 bus[i,j] = get_best_input(np.array([a,v]), us)
@@ -249,8 +248,8 @@ def create_Q_table():
         return Q, Qe, explored
     
     ########################################################################################################################
-    ########################################################################################################################
     ### PARAMETERS #########################################################################################################
+    ########################################################################################################################
     AGRID = 88 # number of grid points angles 24
     VGRID = AGRID+1 # number of grid points velocities 25
     UGRID = 5 # number of grid points for the control inputs
@@ -264,7 +263,7 @@ def create_Q_table():
     MAX_DEPTH_BF = 100 # maximum depth of the tree for breadth first
     DT = - 1 / OPT_FREQ # time step ( NOTE: negative for exploring from the instability point )
     MAX_VISITS = 3e6 # number of states visited by the algorithm
-    COHERENT_INPUS = True # use coeherent inputs
+    COHERENT_INPUS = False # use coeherent inputs
     if DT > 0: print('Warning: DT is positive')
 
     As = np.linspace(-π, π, AGRID, endpoint=False) # angles
@@ -291,16 +290,16 @@ def create_Q_table():
         # define DEPTH random colors
         colors = plt.cm.viridis(np.linspace(1, 0, DEPTH))
         curr_states, curr_ius = [get_closest(x0)], [len(US)//2]
-        visited = np.zeros_like(Q) # visited states
-        Qt = np.zeros_like(Q) # temporary Q function
+        Qese = np.zeros_like(Q) # visited states
+        Qes = np.zeros_like(Q) # temporary Q function
         for d in (range(DEPTH)): 
             if len(curr_states) == 0: break # no more states to explore
             print(f'depth: {d}/{DEPTH}, states: {len(curr_states)}    ')
             next_states, next_ius = [], []
             for (xgi, xg), iu in zip(curr_states, curr_ius):
-                if visited[xgi]: continue
-                visited[xgi] = True
-                Qt[xgi] = d+1 # temporary Q function
+                if Qese[xgi]: continue
+                Qese[xgi] = True
+                Qes[xgi] = d+1 # temporary Q function
                 #plot a point of the current state
                 x, y = xg
                 ax.plot(x, y, 'o', color=colors[d])
@@ -312,9 +311,15 @@ def create_Q_table():
         ax.grid(True)
         ax.set_xticks(np.arange(-π, π+1, π/2))
         ax.set_xticklabels(['-π', '-π/2', '0', 'π/2', 'π'])
-        #set Qt to the maximum depth if Q is not visited
-        Qt = np.where(visited, Qt, d+2)
-        fig2 = plot_Q_stuff(Qt, As, Vs, None, None, None)
+        #set Qes to the maximum depth if Q is not Qese
+        Qes = np.where(Qese, Qes, d+2)
+
+        # calculate the optimal control inputs
+        bus = find_optimal_inputs(Qes, Qese, As, Vs, US)
+        # generate the optimal paths
+        paths = generate_optimal_paths(bus, Qese)
+        # plot the results
+        fig, fig2, _, _ = plot_Q_stuff(Qes, As, Vs, paths, bus, None)
 
         return fig, fig2
 
