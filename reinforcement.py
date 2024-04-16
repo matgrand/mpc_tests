@@ -287,7 +287,7 @@ def create_Q_table():
         #plot the grid with small black dots
         [ax.plot(a,v, 'ko', markersize=1) for a in As for v in Vs]
         x0 = np.array([0,0]) # initial state
-        DEPTH = 190
+        DEPTH = 210
         # define DEPTH random colors
         colors = plt.cm.viridis(np.linspace(1, 0, DEPTH))
         curr_states, curr_ius = [get_closest(x0)], [len(US)//2]
