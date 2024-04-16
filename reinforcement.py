@@ -5,7 +5,7 @@ from tqdm import tqdm
 from plotting import *
 # from inputs import addittive_resample as expu
 from inputs import frequency_resample as expu 
-from mpc import simulate
+# from mpc import simulate
 from numpy.random import uniform, normal
 from time import time
 import multiprocess as mp #note: not multiprocessing
@@ -29,6 +29,34 @@ if SP: from single_pendulum import *
 elif DP: from double_pendulum import *
 elif CDP: from cart_double_pendulum import *
 
+
+# function to simulate a run
+def simulate(x0, t, eu):
+    '''Simulate the pendulum'''
+    n, l, dt = len(t), len(x0), t[1]-t[0] # number of time steps, control inputs, time step
+    x = np.zeros((n, l)) # [θ, dθ, ...] -> state vector
+    x[0] = x0 # initial conditions
+    for i in range(1, n): x[i] = step(x[i-1], eu[i], dt)   
+    return x
+
+########################################################################################################################
+### PARAMETERS #########################################################################################################
+########################################################################################################################
+AGRID = 88 # number of grid points angles 24
+VGRID = AGRID+1 # number of grid points velocities 25
+UGRID = 5 # number of grid points for the control inputs
+MAXV = 10 # [rad/s] maximum angular velocity
+MAXU = 6 # maximum control input
+
+if SP: N = 2 # number of states
+if DP: N = 4 # number of states
+GP = AGRID**(N//2)*VGRID**(N//2) # number of grid points
+MAX_DEPTH_DF = 400 # maximum depth of the tree for depth first
+MAX_DEPTH_BF = 100 # maximum depth of the tree for breadth first
+DT = - 1 / OPT_FREQ # time step ( NOTE: negative for exploring from the instability point )
+MAX_VISITS = 3e6 # number of states visited by the algorithm
+COHERENT_INPUS = False # use coeherent inputs
+if DT > 0: print('Warning: DT is positive')
 
 def create_Q_table():
     def dist_angle(a1, a2):
@@ -246,25 +274,6 @@ def create_Q_table():
                     next_states.append(nx), next_costs.append(csi), next_ius.append(iu)
             curr_states, curr_costs, curr_ius = next_states, next_costs, next_ius
         return Q, Qe, explored
-    
-    ########################################################################################################################
-    ### PARAMETERS #########################################################################################################
-    ########################################################################################################################
-    AGRID = 88 # number of grid points angles 24
-    VGRID = AGRID+1 # number of grid points velocities 25
-    UGRID = 5 # number of grid points for the control inputs
-    MAXV = 10 # [rad/s] maximum angular velocity
-    MAXU = 6 # maximum control input
-
-    if SP: N = 2 # number of states
-    if DP: N = 4 # number of states
-    GP = AGRID**(N//2)*VGRID**(N//2) # number of grid points
-    MAX_DEPTH_DF = 400 # maximum depth of the tree for depth first
-    MAX_DEPTH_BF = 100 # maximum depth of the tree for breadth first
-    DT = - 1 / OPT_FREQ # time step ( NOTE: negative for exploring from the instability point )
-    MAX_VISITS = 3e6 # number of states visited by the algorithm
-    COHERENT_INPUS = False # use coeherent inputs
-    if DT > 0: print('Warning: DT is positive')
 
     As = np.linspace(-π, π, AGRID, endpoint=False) # angles
     Vs = np.linspace(-MAXV, MAXV, VGRID) # velocities
