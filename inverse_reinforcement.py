@@ -18,7 +18,7 @@ SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
 M = SP
-OPT_FREQ = 1*60 # frequency of the time steps optimization
+OPT_FREQ = 2*60 # frequency of the time steps optimization
 SIM_FREQ = 10*OPT_FREQ # frequency of the time steps simulation
 assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 
@@ -33,12 +33,12 @@ elif CDP: from cart_double_pendulum import *
 ########################################################################################################################
 ### PARAMETERS #########################################################################################################
 ########################################################################################################################
-AGRID = 60 # number of grid points angles 24
+AGRID = 140 # number of grid points angles 24
 VGRID = AGRID+1 # number of grid points velocities 25
 UGRID = 11 # number of grid points for the control inputs
 UCONTR = 64 # density of the input for control
 MAXV = 10 # [rad/s] maximum angular velocity
-MAXU = 3 # maximum control input
+MAXU = 4 # maximum control input
 
 if SP: N = 2 # number of states
 if DP: N = 4 # number of states
@@ -154,6 +154,20 @@ def plot_Q_stuff(Q, As, Vs, paths, bus, explored):
         ax1.set_ylabel('angular velocity')
         ax1.set_title('Q function')
     else: fig1 = None
+
+    if Q is not None:
+        # plot 3d 
+        fig2 = plt.figure(figsize=(10,10))
+        ax2 = fig2.add_subplot(111, projection='3d')
+        X, Y = np.meshgrid(As, Vs)
+        ax2.plot_surface(X, Y, Q, cmap=cm.coolwarm)
+        ax2.set_xlabel('angle')
+        ax2.set_ylabel('angular velocity')
+        ax2.set_zlabel('cost')
+        ax2.set_title('Q function')
+    else: fig2 = None
+
+
 
     if bus is not None:
         # plot the best control inputs
@@ -286,7 +300,7 @@ def explore_breadth_firts(Q, Qe, x0):
 
 def naive_explore(Q, Qe, x0):
     assert not COHERENT_INPUS, 'naive_explore does not work with COHERENT_INPUS'
-    DEPTH = 310
+    DEPTH = 180
     # define DEPTH random colors
     explored = [] # explored states
     curr_xgis, curr_xgs = [get_closest(x0)[0]], [get_closest(x0)[1]]
