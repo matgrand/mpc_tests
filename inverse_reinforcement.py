@@ -18,7 +18,7 @@ SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
 M = SP
-OPT_FREQ = 3*60 # frequency of the time steps optimization
+OPT_FREQ = 1*60 # frequency of the time steps optimization
 SIM_FREQ = 10*OPT_FREQ # frequency of the time steps simulation
 assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 
@@ -33,7 +33,7 @@ elif CDP: from cart_double_pendulum import *
 ########################################################################################################################
 ### PARAMETERS #########################################################################################################
 ########################################################################################################################
-AGRID = 130 # number of grid points angles 24
+AGRID = 60 # number of grid points angles 24
 VGRID = AGRID+1 # number of grid points velocities 25
 UGRID = 11 # number of grid points for the control inputs
 UCONTR = 64 # density of the input for control
@@ -138,17 +138,20 @@ def plot_Q_stuff(Q, As, Vs, paths, bus, explored):
     if Q is not None:
         Q[np.isinf(Q)] = 0 + np.max(Q[~np.isinf(Q)]) # replace the inf values
         # plot the Q function
-        Q = - Q # invert the Q function
-        # from (12,19) to (19,12)
-        Q = Q.T
-        fig1 = plt.figure(figsize=(10,10))
-        ax1 = fig1.add_subplot(111, projection='3d')
-        X, Y = np.meshgrid(As, Vs)
-        assert Q.shape == X.shape == Y.shape, f'Q: {Q.shape}, X: {X.shape}, Y: {Y.shape}'
-        ax1.plot_surface(X, Y, Q, cmap=cm.coolwarm)
+        Q = - Q.T # invert the Q function
+        #plot a color matrix
+        fig1, ax1 = plt.subplots(1,1, figsize=(10,10))
+        cax = ax1.matshow(Q, cmap=cm.coolwarm)
+        fig1.colorbar(cax)
+        #add the grid
+        ax1.grid(True)
+        ax1.set_xticks(np.arange(0, len(As), len(As)/8))
+        ax1.set_xticklabels(['-π', '-3π/4', '-π/2', '-π/4', '0', 'π/4', 'π/2', '3π/4'])
+        print(np.arange(0, len(Vs), len(Vs)/8))
+        ax1.set_yticks(np.arange(0, len(Vs), len(Vs)/8))
+        ax1.set_yticklabels([f'{MAXV}', f'{0.75*MAXV}', f'{0.5*MAXV}', f'{0.25*MAXV}', '0', f'-{0.25*MAXV}', f'-{0.5*MAXV}', f'-{0.75*MAXV}'])
         ax1.set_xlabel('angle')
         ax1.set_ylabel('angular velocity')
-        ax1.set_zlabel('cost')
         ax1.set_title('Q function')
     else: fig1 = None
 
@@ -283,7 +286,7 @@ def explore_breadth_firts(Q, Qe, x0):
 
 def naive_explore(Q, Qe, x0):
     assert not COHERENT_INPUS, 'naive_explore does not work with COHERENT_INPUS'
-    DEPTH = 250
+    DEPTH = 310
     # define DEPTH random colors
     explored = [] # explored states
     curr_xgis, curr_xgs = [get_closest(x0)[0]], [get_closest(x0)[1]]
