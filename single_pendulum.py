@@ -2,10 +2,10 @@ import numpy as np; π = np.pi
 import sympy as sp
 
 # Constants
-g = 9.81 # [m/s^2] gravity
+g = 9.81 # 9.81 # [m/s^2] gravity
 l = 1 # [m] length of the pendulum
 m = 1 # [kg] mass of the pendulum
-μ = 0.6 # [kg/s] damping coefficient
+μ = 0.3 # [kg/s] damping coefficient
 WRAP_AROUND = True # wrap the angle to [-π, π]
 
 if µ < 0: print('Warning: the damping coefficient is negative')

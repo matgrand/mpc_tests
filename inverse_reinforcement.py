@@ -18,7 +18,7 @@ SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
 M = SP
-OPT_FREQ = 2*60 # frequency of the time steps optimization
+OPT_FREQ = 3*60 # frequency of the time steps optimization
 SIM_FREQ = 10*OPT_FREQ # frequency of the time steps simulation
 assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 
@@ -33,12 +33,12 @@ elif CDP: from cart_double_pendulum import *
 ########################################################################################################################
 ### PARAMETERS #########################################################################################################
 ########################################################################################################################
-AGRID = 88 # number of grid points angles 24
+AGRID = 130 # number of grid points angles 24
 VGRID = AGRID+1 # number of grid points velocities 25
-UGRID = 7 # number of grid points for the control inputs
+UGRID = 11 # number of grid points for the control inputs
 UCONTR = 64 # density of the input for control
 MAXV = 10 # [rad/s] maximum angular velocity
-MAXU = 6 # maximum control input
+MAXU = 3 # maximum control input
 
 if SP: N = 2 # number of states
 if DP: N = 4 # number of states
@@ -281,6 +281,29 @@ def explore_breadth_firts(Q, Qe, x0):
         curr_states, curr_costs, curr_ius = next_states, next_costs, next_ius
     return Q, Qe, explored
 
+def naive_explore(Q, Qe, x0):
+    assert not COHERENT_INPUS, 'naive_explore does not work with COHERENT_INPUS'
+    DEPTH = 250
+    # define DEPTH random colors
+    explored = [] # explored states
+    curr_xgis, curr_xgs = [get_closest(x0)[0]], [get_closest(x0)[1]]
+    for d in (range(DEPTH)): 
+        if len(curr_xgis) == 0: break # no more states to explore
+        print(f'depth: {d}/{DEPTH}, states: {len(curr_xgis)}    ', end='\r')
+        next_xgis, next_xgs = [], []
+        for xgi, xg in zip(curr_xgis, curr_xgs):
+            if Qe[xgi]: continue # already visited, skip
+            explored.append(xg) # save the explored states
+            Qe[xgi] = True
+            Q[xgi] = d+1 # temporary Q function
+            reachable, cus, uis = reachable_states(xg, US) # reachable states from the current state, input costs, input indexes
+            reachable_grid = [get_closest(r) for r in reachable] # reachable grid points
+            for (nxgi, nxg), cu, i in zip(reachable_grid, cus, uis):
+                if nxgi in next_xgis: continue # already in the next states
+                next_xgis.append(nxgi), next_xgs.append(nxg)
+        curr_xgis, curr_xgs = next_xgis, next_xgs
+    return Q, Qe, explored
+
 def test_explore_space(): 
     print(f'US: {US}')
     # lets plot a graph of visitable nodes
@@ -305,8 +328,8 @@ def test_explore_space():
             #plot a point of the current state
             ax.plot(xg[0], xg[1], 'o', color=colors[d])
             reach, _, _ = reachable_states(xg, US, iu)
-            reach_grid = [get_closest(x) for x in reach]
-            for nxgi, nxg in reach_grid:
+            reachable_grid = [get_closest(x) for x in reach]
+            for nxgi, nxg in reachable_grid:
                 next_states.append((nxgi, nxg)), next_ius.append(iu)
         curr_states, curr_ius = next_states, next_ius
     print()
@@ -453,36 +476,40 @@ if __name__ == '__main__':
     ########################################################################################################################
     ########################################################################################################################
 
-    f = test_explore_space()
+    # f = test_explore_space()
     # f = test_gridless()
     # f = test_explore_grid()
 
-    # x0 = np.array([0,0]) # initial state
+    x0 = np.array([0,0]) # initial state
+
     # # depth first
     # print('Depth first')
-    # Qb, Qeb = Q.copy(), Qe.copy()
-    # Qb, Qeb, explb = explore_depth_first(Qb, Qeb, x0)
-    # print(f'\nexpl: {100*np.sum(Qeb)/GP:.1f}%, vis: {len(explb)}')
+    # Qd, Qed = Q.copy(), Qe.copy()
+    # Qd, Qed, expld = explore_depth_first(Qd, Qed, x0)
+    # print(f'\nexpl: {100*np.sum(Qed)/GP:.1f}%, vis: {len(expld)}')
+    # busd = find_optimal_inputs(Qd, Qed, As, Vs, US)
+    # pathsd, inputsd = generate_optimal_paths(busd, Qed)
+    # figsd = plot_Q_stuff(Qd, As, Vs, pathsd, busd, expld)
+    
     # # breadth first
     # print('Breadth first')
-    # Qd, Qed = Q.copy(), Qe.copy()
-    # Qd, Qed, expld = explore_breadth_firts(Qd, Qed, x0)
-    # print(f'\nexpl: {100*np.sum(Qed)/GP:.1f}%, vis: {len(expld)}')
-
-    # # find the optimal control inputs
-    # print('Optimal inputs')
+    # Qb, Qeb = Q.copy(), Qe.copy()
+    # Qb, Qeb, explb = explore_breadth_firts(Qb, Qeb, x0)
+    # print(f'\nexpl: {100*np.sum(Qeb)/GP:.1f}%, vis: {len(explb)}')
     # busb = find_optimal_inputs(Qb, Qeb, As, Vs, US)
-    # busd = find_optimal_inputs(Qd, Qed, As, Vs, US)
-
-    # # generate optimal paths
-    # print('Optimal paths')
-    # pathsb = generate_optimal_paths(busb, Qeb)
-    # pathsd = generate_optimal_paths(busd, Qed)
-
-    # # plot the results
-    # print('Plotting')
+    # pathsb, inputsb = generate_optimal_paths(busb, Qeb)
     # figsb = plot_Q_stuff(Qb, As, Vs, pathsb, busb, explb)
-    # figsd = plot_Q_stuff(Qd, As, Vs, pathsd, busd, expld)
+
+    # naive
+    print('Naive')
+    Qn, Qen = Q.copy(), Qe.copy()
+    Qn, Qen, expln = naive_explore(Qn, Qen, x0)
+    print(f'\nexpl: {100*np.sum(Qen)/GP:.1f}%, vis: {len(expln)}')
+    busn = find_optimal_inputs(Qn, Qen, As, Vs, US)
+    pathsn, inputsn = generate_optimal_paths(busn, Qen)
+    figsn = plot_Q_stuff(Qn, As, Vs, pathsn, busn, expln)
+
+
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
     plt.show()
