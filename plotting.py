@@ -15,6 +15,8 @@ def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6), title='Pendulum'):
     u = np.concatenate([np.array([u[0]]*sw), u, np.array([u[-1]]*sw)]) if WAIT_S > 0 else u
     maxu = max(np.max(np.abs(u)), 1e-3)
     u = l*u/maxu # scale the control input
+    #invert u for angles in [-π/2, π/2]
+    u = np.where(np.abs(x[:,0]) > π/2, -u, u)
     #create a new figure
     fig, ax = plt.subplots(figsize=figsize)
     lim = 1.1*l
@@ -65,6 +67,8 @@ def animate_pendulums(xs, us, dt, l, fps=60, figsize=(6,6), title='Pendulums'):
         u = np.concatenate([np.array([u[0]]*sw), u, np.array([u[-1]]*sw)]) if WAIT_S > 0 else u
         maxu = max(np.max(np.abs(u)), 1e-3)
         u = l*u/maxu
+        #invert u for angles in [-π/2, π/2]
+        u = np.where(np.abs(x[:,0]) > π/2, -u, u)
         new_xs.append(x), new_us.append(u)
     def init():
         for j in range(npe):

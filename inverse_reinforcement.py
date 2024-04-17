@@ -35,7 +35,8 @@ elif CDP: from cart_double_pendulum import *
 ########################################################################################################################
 AGRID = 88 # number of grid points angles 24
 VGRID = AGRID+1 # number of grid points velocities 25
-UGRID = 3 # number of grid points for the control inputs
+UGRID = 7 # number of grid points for the control inputs
+UCONTR = 64 # density of the input for control
 MAXV = 10 # [rad/s] maximum angular velocity
 MAXU = 6 # maximum control input
 
@@ -199,23 +200,25 @@ def generate_optimal_paths(bus, Qe):
     assert SP
     if np.sum(Qe) < 0.1*GP: return None
     # plot some optimal paths starting from some random states
-    paths, pi = [], 0 # paths to ret, pi=path index
+    paths, inputs, pi = [],[], 0 # paths to ret, pi=path index
     while pi < 100: # generate 100 paths
-        x = np.array([uniform(-π, π), uniform(-MAXV, MAXV)]) # random state
+        # x = np.array([uniform(-π, π), uniform(-MAXV, MAXV)]) # random state
+        amean, vmean = 0, 0
+        x = np.array([uniform(amean-.1, amean+.1), uniform(vmean-.3, vmean+.3)]) # random state
         xgi, xg = get_closest(x) # closest grid point
         if not Qe[xgi]: continue # not explored
-        path = [x] # path
-        for i in range(3*SIM_FREQ): # simulate the pendulum
+        path, input = [x],[0] # path
+        for i in range(10*OPT_FREQ): # simulate the pendulum
             u = bus[xgi] # best control input
             x = step(x, u, -DT) # simulation step NOTE: positive time
             if is_outside(x): break 
             xgi, _ = get_closest(x) # closest grid point
-            path.append(x)
-        paths.append(path)
+            path.append(x), input.append(u)
+        paths.append(path), inputs.append(input)
         pi += 1
         print(f'paths: {pi}/100    ', end='\r')
     print(f'generated {len(paths)} paths')
-    return paths
+    return paths, inputs
 
 '''
 stuff to do:
@@ -315,16 +318,29 @@ def test_explore_space():
     # calculate the optimal control inputs
     bus = find_optimal_inputs(Qes, Qese, As, Vs, US)
     # generate the optimal paths
-    paths = generate_optimal_paths(bus, Qese)
+    paths, inputs = generate_optimal_paths(bus, Qese)
     # plot the results
     fig, fig2, _, _ = plot_Q_stuff(Qes, As, Vs, paths, bus, None)
 
-    # #animate the optimal paths
-    # if paths is not None:
-    #     fig3 = plot_state_trajectories(paths, figsize=(10,10), title='Optimal paths')
-
-
-    return fig, fig2
+    #make all pathe the same length by adding the last state
+    if paths is not None:
+        max_len = max([len(p) for p in paths])
+        for p in paths: 
+            while len(p) < max_len: p.append(p[-1])
+        for inp in inputs:
+            while len(inp) < max_len: inp.append(inp[-1])
+        paths = np.array([np.array(p) for p in paths])
+        inputs = np.array([np.array(inp) for inp in inputs])
+        #keep only the paths that have a last angle < π/
+        paths_good = paths[np.where(np.abs(paths[:,-1,0]) < π/6)]
+        if len(paths_good) > 0:
+            paths = paths_good
+            inputs = inputs[np.where(np.abs(paths[:,-1,0]) < π/6)]
+        anim = animate_pendulums(paths, inputs, -DT, l, fps=60, figsize=(10,10))
+        idx = np.random.randint(len(paths))
+        path, input = paths[idx], inputs[idx]
+        anim2 = animate_pendulum(path, input, -DT, l, figsize=(10,10))
+    return fig, fig2, anim, anim2
 
 def test_gridless():
     if not COHERENT_INPUS:
@@ -418,7 +434,7 @@ def test_explore_grid():
     
 
     return fig
-            
+
 if __name__ == '__main__':
     os.system('clear')
     main_start = time()
@@ -427,7 +443,8 @@ if __name__ == '__main__':
     Vs = np.linspace(-MAXV, MAXV, VGRID) # velocities
     DGA = dist_angle(As[0], As[1]) # distance between grid points for the angles
     DGV = dist_velocity(Vs[0], Vs[1]) # distance between grid points for the velocities
-    US = np.linspace(-MAXU, MAXU, UGRID) # control inputs   
+    US = np.linspace(-MAXU, MAXU, UGRID) # inputs   
+    CUS = np.linspace(-MAXU, MAXU, UCONTR) # control inputs
     if SP: Q = np.ones((AGRID, VGRID)) * np.inf # Q function
     if DP: Q = np.ones((AGRID, AGRID, VGRID, VGRID)) * np.inf # Q function
     Qe = np.zeros_like(Q) # Q function explored

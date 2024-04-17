@@ -5,7 +5,7 @@ import sympy as sp
 g = 9.81 # [m/s^2] gravity
 l = 1 # [m] length of the pendulum
 m = 1 # [kg] mass of the pendulum
-μ = 0.4 # [kg/s] damping coefficient
+μ = 0.6 # [kg/s] damping coefficient
 WRAP_AROUND = True # wrap the angle to [-π, π]
 
 if µ < 0: print('Warning: the damping coefficient is negative')
@@ -40,13 +40,25 @@ def potential_energy(x): return fV(*x.T)
 
 del t, θ, dθ, leq, T, V, L, x, y, u # delete the symbolic variables
 
-def step(x, u, dt): 
+def fixed_step(x, u, dt): 
     '''Integrate the differential equation using the Euler method'''
     θ, dθ = x # split the state vector
     dθ = dθ + fddθ(θ, dθ, u)[0]*dt # integrate the acceleration
     θ = θ + dθ*dt # integrate the velocity
     if WRAP_AROUND: θ = (θ+π) % (2*π) - π # normalize the angle to [-π, π]
     return np.array([θ, dθ]) # new state vector
+
+def variable_step(x, u , dt):
+    '''Integrate the differential equation using the Euler method'''
+    θ, dθ = x # split the state vector
+    dtv = dt / (1 + dθ**2) # variable step size
+    dθ = dθ + fddθ(θ, dθ, u)[0]*dtv # integrate the acceleration
+    θ = θ + dθ*dt # integrate the velocity
+    if WRAP_AROUND: θ = (θ+π) % (2*π) - π # normalize the angle to [-π, π]
+    return np.array([θ, dθ]) # new state vector
+
+def step(x, u, dt): return fixed_step(x, u, dt) # use the fixed step function
+# def step(x, u, dt): return variable_step(x, u, dt) # use the fixed step function
 
 if __name__ == '__main__':
 
