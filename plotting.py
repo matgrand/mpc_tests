@@ -333,14 +333,25 @@ def plot_double(x, t, u, T, V, figsize=(12,10)):
     ax[0].grid(True), ax[1].grid(True), ax[2].grid(True), ax[3].grid(True)
     plt.tight_layout()
 
-def plot_state_trajectories(xs, figsize=(8,8), title='State trajectories'):
+def plot_state_trajectories(xs, Qstuff=None, figsize=(8,8), title='State trajectories', center=False):
     fig, ax = plt.subplots(figsize=figsize)
-    #create colors
-    colors = plt.cm.viridis(np.linspace(0, 1, len(xs)))
+    if Qstuff is not None:
+        Q, As, Vs = Qstuff
+        Q = (-Q.T).astype(np.int32)
+        print(f'Qmax: {np.max(Q)}, Qmin: {np.min(Q)}')
+        #plot the Q function before the trajectories
+        Qcolors = plt.cm.viridis(np.linspace(0, 1, np.max(Q)+1))
+        for ia, a in enumerate(As):
+            for iv, v in enumerate(Vs):
+                ax.plot(a, v, 'o', color=Qcolors[Q[ia, iv]])#, markersize=4)
+    #create random colors, no viridis
+    colors = plt.cm.tab20(np.linspace(0, 1, len(xs)))
     for x, c in zip(xs, colors):
         x = np.array(x)
-        θs, dθs = x[:,0], x[:,1]
-        θs = np.where(θs < 0, θs + 2*π, θs) # normalize the angle to [0, 2π]
+        θs, dθs = x[:,0], x[:,1] # split the state vector
+        if center: θs = np.where(θs < 0, θs + 2*π, θs) # normalize the angle to [0, 2π]
+        ax.plot(θs[-1], dθs[-1], 'o', color=c) # final state
+        ax.plot(θs[0], dθs[0], 'x', color=c) # initial state
         #check if there are interruptions in the angles
         interruptions = np.where(np.abs(np.diff(θs)) > π/2)[0]
         #split the angles in the interruptions
@@ -348,13 +359,18 @@ def plot_state_trajectories(xs, figsize=(8,8), title='State trajectories'):
         dθs = np.split(dθs, interruptions+1)
         #plot the trajectories
         for θ, dθ in zip(θs, dθs):
-            ax.plot(θ, dθ, '-', lw=1, color=c)
+            ax.plot(θ, dθ, '-', lw=1.5, color=c)
     ax.set_title(title)
-    ax.set_xlim(0, 2*π)
+    if center: ax.set_xlim(0, 2*π)
+    else: ax.set_xlim(-π, π)
     ax.set_xlabel('angle')
     ax.set_ylabel('angular velocity')
     ax.grid(True)
-    ax.set_xticks(np.arange(0, 2*π+1, π/2))
-    ax.set_xticklabels(['0', 'π/2', 'π', '3π/2', '2π'])
+    if center:
+        ax.set_xticks(np.arange(0, 2*π+1, π/2))
+        ax.set_xticklabels(['0', 'π/2', 'π', '3π/2', '2π'])
+    else:
+        ax.set_xticks(np.arange(-π, π+1, π/2))
+        ax.set_xticklabels(['-π', '-π/2', '0', 'π/2', 'π'])
     plt.tight_layout()
     return fig

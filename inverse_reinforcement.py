@@ -33,10 +33,10 @@ elif CDP: from cart_double_pendulum import *
 ########################################################################################################################
 ### PARAMETERS #########################################################################################################
 ########################################################################################################################
-AGRID = 161 # number of grid points angles 24
+AGRID = 161 #161 # number of grid points angles 24
 VGRID = int(1.2*AGRID)+1 # number of grid points velocities 25
-UGRID = 16 # number of grid points for the control inputs
-UCONTR = 16 # density of the input for control
+UGRID = 13 # number of grid points for the control inputs
+UCONTR = 13 # density of the input for control
 MAXV = 8 # [rad/s] maximum angular velocity
 MAXU = 5 # maximum control input
 
@@ -45,6 +45,7 @@ if DP: N = 4 # number of states
 GP = AGRID**(N//2)*VGRID**(N//2) # number of grid points
 MAX_DEPTH_DF = 400 # maximum depth of the tree for depth first
 MAX_DEPTH_BF = 100 # maximum depth of the tree for breadth first
+NAIVE_DEPTH = 240 # maximum depth of the tree for naive exploration
 DT = - 1 / OPT_FREQ # time step ( NOTE: negative for exploring from the instability point )
 MAX_VISITS = 3e6 # number of states visited by the algorithm
 COHERENT_INPUS = False # use coeherent inputs
@@ -79,12 +80,18 @@ def get_xgrid(idxs):
     a, v = As[idxs[0]], Vs[idxs[1]]
     return np.array([a, v])
 
-def get_closest(x, idxs=None): # ret (idxs, xgrid)
+def get_closest(x, n=1): # ret (idxs, xgrid)
+    '''Get the closest n grid points to the state x'''
     assert SP
     da = dist_angle(x[0], As)
     dv = dist_velocity(x[1], Vs)
-    ia, iv = np.argmin(da), np.argmin(dv)
-    return (ia, iv), get_xgrid((ia, iv))
+    idxs = []
+    for _ in range(n):
+        ia, iv = np.argmin(da), np.argmin(dv)
+        da[ia], dv[iv] = np.inf, np.inf
+        idxs.append((ia, iv))
+    if n ==1: return idxs[0], get_xgrid(idxs[0])
+    else: return idxs, [get_xgrid(idx) for idx in idxs]
 
 def reach_next(x, xg, u, t=1.0, dt=DT):
     '''Reach the next state given the control input
@@ -183,7 +190,7 @@ def plot_Q_stuff(Q, As, Vs, paths_inputs, bus, explored):
     # plot the paths
     if paths_inputs is not None:
         paths, inputs = paths_inputs
-        fig0 = plot_state_trajectories(paths, figsize=(10,10), title='Optimal paths')
+        fig0 = plot_state_trajectories(paths, (Q, As, Vs), figsize=(10,10), title='Optimal paths')
         paths = np.array([np.array(p) for p in paths])
         inputs = np.array([np.array(inp) for inp in inputs])
         print(f'paths: {paths.shape}, inputs: {inputs.shape}')
@@ -214,33 +221,82 @@ def find_optimal_inputs(Q, Qe, As, Vs, us):
             bus[i,j] = get_best_input(Q, np.array([a,v]), us, -DT)
     return bus
 
+def get_Q_val(Q, x):
+    '''Get the value of the Q function for a given state
+    Use the 4 closest grid points to interpolate the Q function'''
+    xg_idx, _ = get_closest(x, 4)
+    Qvals = [Q[xgi] for xgi in xg_idx]
+    return np.mean(Qvals)
+    # return np.min(Qvals)
+    # return np.max(Qvals)
+
 def generate_optimal_paths(Q, Qe, cus, control_freq=30.0, n_paths=100, length_seconds=10):
     assert SP and np.all(Qe), 'generate_optimal_paths only works with SP and all states explored'
+   
+    fig, ax = plt.subplots(figsize=(10,10))
+    Qplot = (Q.copy()).astype(np.int32)
+    print(f'Qmax: {np.max(Qplot)}, Qmin: {np.min(Qplot)}')
+    #plot the Q function before the trajectories
+    Qcolors = cm.coolwarm(np.linspace(1, 0, np.max(Qplot)+1))
+    for ia, a in enumerate(As):
+        for iv, v in enumerate(Vs):
+            # ax.plot(a, v, 's', color=Qcolors[Qplot[ia, iv]], markersize=4)
+            ax.plot(a, v, 'o', color=Qcolors[Qplot[ia, iv]], markersize=4)
+
+    ax.set_xlabel('angle')
+    ax.set_ylabel('angular velocity')
+    ax.set_title('Optimal control paths')
+    ax.grid(True)
+    ax.set_xticks(np.arange(-π, π+1, π/2))
+    ax.set_xticklabels(['-π', '-π/2', '0', 'π/2', 'π'])
+
     # plot some optimal paths starting from some random states
     paths, inputs = [],[] # paths to ret, pi=path index
-    for _ in tqdm(range(n_paths), desc='paths'):
-        x = np.array([uniform(-π, π), uniform(-MAXV/4, MAXV/4)]) # random state
-        # amean, vmean = π, 2
-        # x = np.array([uniform(amean-.1, amean+.1), uniform(vmean-.3, vmean+.3)]) # random state
-        path, input = [x],[0] # path
+    # assert n_paths % 2 == 0, 'n_paths must be even'
+    # x0s = [np.array([uniform(-π, π), uniform(-MAXV/4, MAXV/4)]) for _ in range(n_paths//2)] # random states
+    # x0s = x0s + [-x0 for x0 in x0s] # add the symmetric states
+    # assert len(x0s) == n_paths, f'len(x0s): {len(x0s)}, n_paths: {n_paths}'
+    x0s = [np.array([-π/2, 0])]#, np.array([-π/2, 0])] # initial states
+    for x0 in tqdm(x0s, desc='paths'):
+        print(f'\n\nx0: {x0}')
+        path, input = [x0],[0] # path
+        t = np.linspace(0, 1/control_freq, int(OPT_FREQ/control_freq)) # time vector
+        x = x0 # current state
         for _ in range(int(length_seconds*control_freq)): # simulate the pendulum
-            t = np.linspace(0, 1/control_freq, int(OPT_FREQ/control_freq))
-            nxs = []
+            nxs = [] # next states
             for u in cus:
-                us = np.ones_like(t)*u
-                nx = simulate(x, t, us)[-1]
-                nxs.append(nx)
+                nx = simulate(x, t, np.ones_like(t)*u)
+
+                θs, dθs = nx.T #plotting
+                interruptions = np.where(np.abs(np.diff(θs)) > π/2)[0]
+                θs = np.split(θs, interruptions+1)
+                dθs = np.split(dθs, interruptions+1)
+                for θ, dθ in zip(θs, dθs):
+                    # ax.plot(θ, dθ, ':', lw=1, color=cm.viridis(u/MAXU))
+                    ax.plot(θ, dθ, ':', lw=1, color=cm.coolwarm(u/MAXU))
+
+                nxs.append(nx[-1]) # last state
             nxs = np.array(nxs)
-            best_u_idx = np.argmin([Q[get_closest(nx)[0]] for nx in nxs])
+            # best_u_idx = np.argmin([Q[get_closest(nx)[0]] for nx in nxs])
+            best_u_idx = np.argmin([get_Q_val(Q, nx) for nx in nxs])
+            print(f'best_u_idx: {best_u_idx}, best_u: {cus[best_u_idx]}')
             best_u = cus[best_u_idx]*np.ones_like(t)
-            x = simulate(x, t, best_u)
-            path.extend(x), input.extend(best_u)
-            x = x[-1] # last state becomes the new start
+            bnx = simulate(x, t, best_u) # simulate the best control input
+            path.extend(bnx), input.extend(best_u)
+            x = bnx[-1] # update the current state
         #reassemble the path and input
         path, input = np.array(path), np.array(input)
+
+        #plot the final path in black
+        #split the path in parts
+        interruptions = np.where(np.abs(np.diff(path[:,0])) > π/2)[0]
+        ppaths = np.split(path, interruptions+1)
+        for p in ppaths:
+            ax.plot(p[:,0], p[:,1], 'k', lw=1)
+
         paths.append(path), inputs.append(input)
     print(f'generated {len(paths)} paths')
-    return paths, inputs
+    return paths, inputs, fig
 
 '''
 stuff to do:
@@ -305,7 +361,6 @@ def explore_breadth_firts(Q, Qe, x0):
 
 def naive_explore(Q, Qe, x0):
     assert not COHERENT_INPUS, 'naive_explore does not work with COHERENT_INPUS'
-    NAIVE_DEPTH = 220
     explored = [] # explored states
     curr_xgis, curr_xgs = [get_closest(x0)[0]], [get_closest(x0)[1]]
     for d in (range(NAIVE_DEPTH)): 
@@ -327,7 +382,6 @@ def naive_explore(Q, Qe, x0):
 
 def fix_Q_edges(Q):
     ''' set the 'edges' of the Q function to the maximum value'''
-    THRSH = 20
     mask = np.zeros_like(Q, dtype=bool)
     for a in range(AGRID):
         for v in range(VGRID):
@@ -335,8 +389,9 @@ def fix_Q_edges(Q):
             v0, v1 = max(v-1, 0), min(v+1, VGRID-1)
             # to_check = [Q[a0,v], Q[a1,v], Q[a,v0], Q[a,v1]]
             to_check = [Q[a0,v0], Q[a0,v], Q[a0,v1], Q[a,v0], Q[a,v], Q[a,v1], Q[a1,v0], Q[a1,v], Q[a1,v1]]
-            if np.max(to_check) - np.min(to_check) > THRSH: mask[a,v] = True
-    Q[mask] = 400
+            if np.max(to_check) - np.min(to_check) > 20: mask[a,v] = True
+    Q[mask] = NAIVE_DEPTH + 1
+    Q[mask] = 0
     return Q
 
 def test_explore_space(): 
@@ -501,12 +556,14 @@ if __name__ == '__main__':
     Vs = np.linspace(-MAXV, MAXV, VGRID) # velocities
     DGA = dist_angle(As[0], As[1]) # distance between grid points for the angles
     DGV = dist_velocity(Vs[0], Vs[1]) # distance between grid points for the velocities
-    US = np.linspace(-MAXU, MAXU, UGRID) # inputs   
-    CUS = np.linspace(-0.9*MAXU, 0.9*MAXU, UCONTR) # control inputs
+    US = np.linspace(-1*MAXU, 1*MAXU, UGRID) # inputs   
+    CUS = np.linspace(-1*MAXU, 1*MAXU, UCONTR) # control inputs
     if SP: Q = np.ones((AGRID, VGRID)) * np.inf # Q function
     if DP: Q = np.ones((AGRID, AGRID, VGRID, VGRID)) * np.inf # Q function
     Qe = np.zeros_like(Q) # Q function explored
     print(f'Q shape: {Q.shape}, US shape: {US.shape}, GP: {GP}')
+
+    Q_name = f'Q_{M}_{AGRID}_{VGRID}_{UGRID}_{UCONTR}_{MAXV}_{MAXU}_{NAIVE_DEPTH}_{OPT_FREQ}_{COHERENT_INPUS}.npy'
     
     ########################################################################################################################
     ########################################################################################################################
@@ -524,9 +581,32 @@ if __name__ == '__main__':
     # Qb, Qeb, explb = explore_breadth_firts(Q, Qe, x0)
 
     print('Naive')
-    Q, Qe, expl = naive_explore(Q, Qe, x0)
+    # check if Q already exists
+    if os.path.exists(f'tmp/{Q_name}'): # load the Q function
+        Q = np.load(f'tmp/{Q_name}')
+        Qe = np.ones_like(Q)
+        expl = []
+        print(f'loaded Q from file: {Q_name}')
+    else:
+        Q, Qe, expl = naive_explore(Q, Qe, x0)
+        np.save(f'tmp/{Q_name}', Q) # save the Q function
 
-    print(f'\nexpl: {100*np.sum(Qe)/GP:.1f}%, vis: {len(expl)}')
+    # # check if the Q function is symmetric and fix it
+    # if SP: 
+    #     n_wrong = 0
+    #     for a in range(AGRID):
+    #         for v in range(VGRID):
+    #             if not np.isclose(Q[a,v], Q[-a%AGRID,-v%VGRID], atol=1e-3): n_wrong += 1
+    #     print(f'not symmetric: {n_wrong}/{AGRID*VGRID}')
+    #     #force symmetry
+    #     for a in range(AGRID):
+    #         for v in range(VGRID):
+    #             Q[-a%AGRID,-v%VGRID] = Q[a,v]
+    #     n_wrong = 0
+    #     for a in range(AGRID):
+    #         for v in range(VGRID):
+    #             if not np.isclose(Q[a,v], Q[-a%AGRID,-v%VGRID], atol=1e-3): n_wrong += 1
+    #     print(f'not symmetric: {n_wrong}/{AGRID*VGRID}')
 
     # Q = fix_Q_edges(Q)
 
@@ -534,9 +614,10 @@ if __name__ == '__main__':
     # bus = find_optimal_inputs(Q, Qe, As, Vs, US)
     bus = None
     # generate the optimal paths
-    paths_inputs = generate_optimal_paths(Q, Qe, CUS, control_freq=30.0, n_paths=20, length_seconds=10)
+    paths, inputs, figpaths = generate_optimal_paths(Q, Qe, CUS, control_freq=5.0, n_paths=2, length_seconds=10)
     # plot the results
-    plots = plot_Q_stuff(Q, As, Vs, paths_inputs, bus, expl)
+
+    plots = plot_Q_stuff(Q, As, Vs, (paths, inputs), bus, expl)
 
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
