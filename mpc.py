@@ -403,10 +403,10 @@ if __name__ == '__main__':
     os.system('clear')
     main_start = time()
 
-    pc = plot_cost_function()
+    # pc = plot_cost_function()
     sf = single_free_evolution()
-    t1 = test_1iter_mpc()
-    tm = test_mpc()
+    # t1 = test_1iter_mpc()
+    # tm = test_mpc()
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
     plt.show()
