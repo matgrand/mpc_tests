@@ -36,9 +36,11 @@ elif CDP: from cart_double_pendulum import *
 AGRID = 161 #161 # number of grid points angles 24
 VGRID = int(1.2*AGRID)+1 # number of grid points velocities 25
 UGRID = 13 # number of grid points for the control inputs
-UCONTR = 13 # density of the input for control
+UCONTR = 66 # density of the input for control
 MAXV = 8 # [rad/s] maximum angular velocity
 MAXU = 5 # maximum control input
+
+ALWAYS_RECALCULATE = False # always recalculate the Q function
 
 if SP: N = 2 # number of states
 if DP: N = 4 # number of states
@@ -224,11 +226,20 @@ def find_optimal_inputs(Q, Qe, As, Vs, us):
 def get_Q_val(Q, x):
     '''Get the value of the Q function for a given state
     Use the 4 closest grid points to interpolate the Q function'''
-    xg_idx, _ = get_closest(x, 4)
+    xg_idx, xg = get_closest(x, 4)
     Qvals = [Q[xgi] for xgi in xg_idx]
-    return np.mean(Qvals)
+    # return np.mean(Qvals)
     # return np.min(Qvals)
     # return np.max(Qvals)
+    xg = np.array(xg)
+    das = dist_angle(x[0], xg[:,0])
+    dvs = dist_velocity(x[1], xg[:,1])
+    was, wvs = das/np.sum(das), dvs/np.sum(dvs)
+    ws = 0.1*was + 0.9*wvs
+    return np.sum([w*Qv for w, Qv in zip(ws, Qvals)])
+
+
+
 
 def generate_optimal_paths(Q, Qe, cus, control_freq=30.0, n_paths=100, length_seconds=10):
     assert SP and np.all(Qe), 'generate_optimal_paths only works with SP and all states explored'
@@ -582,7 +593,7 @@ if __name__ == '__main__':
 
     print('Naive')
     # check if Q already exists
-    if os.path.exists(f'tmp/{Q_name}'): # load the Q function
+    if os.path.exists(f'tmp/{Q_name}') and not ALWAYS_RECALCULATE: # load the Q function
         Q = np.load(f'tmp/{Q_name}')
         Qe = np.ones_like(Q)
         expl = []
