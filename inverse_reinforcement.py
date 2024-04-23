@@ -12,13 +12,13 @@ import multiprocess as mp #note: not multiprocessing
 import os
 np.set_printoptions(precision=3, suppress=True) #set numpy print options
 # os.environ['KMP_DUPLICATE_LIB_OK']='True' # for the multiprocessing to work on MacOS
-# np.random.seed(0)
+np.random.seed(42)
  
 SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
 # Choose the model
 M = SP
-OPT_FREQ = 5*60 # frequency of the time steps optimization
+OPT_FREQ = 6*60 # frequency of the time steps optimization
 SIM_FREQ = 10*OPT_FREQ # frequency of the time steps simulation
 assert SIM_FREQ % OPT_FREQ == 0 # for more readable code
 
@@ -36,7 +36,7 @@ elif CDP: from cart_double_pendulum import *
 AGRID = 161 #161 # number of grid points angles 24
 VGRID = int(1.2*AGRID)+1 # number of grid points velocities 25
 UGRID = 13 # number of grid points for the control inputs
-UCONTR = 66 # density of the input for control
+UCONTR = 25 # density of the input for control
 MAXV = 8 # [rad/s] maximum angular velocity
 MAXU = 5 # maximum control input
 
@@ -47,7 +47,7 @@ if DP: N = 4 # number of states
 GP = AGRID**(N//2)*VGRID**(N//2) # number of grid points
 MAX_DEPTH_DF = 400 # maximum depth of the tree for depth first
 MAX_DEPTH_BF = 100 # maximum depth of the tree for breadth first
-NAIVE_DEPTH = 240 # maximum depth of the tree for naive exploration
+NAIVE_DEPTH = 400 # maximum depth of the tree for naive exploration
 DT = - 1 / OPT_FREQ # time step ( NOTE: negative for exploring from the instability point )
 MAX_VISITS = 3e6 # number of states visited by the algorithm
 COHERENT_INPUS = False # use coeherent inputs
@@ -227,11 +227,12 @@ def find_optimal_inputs(Q, Qe, As, Vs, us):
 def get_Q_val(Q, x):
     '''Get the value of the Q function for a given state
     Use the 4 closest grid points to interpolate the Q function'''
+    # return Q[get_closest(x)[0]]
     xg_idx, xg = get_closest(x, 4)
     Qvals = [Q[xgi] for xgi in xg_idx]
     # return np.mean(Qvals)
-    # return np.min(Qvals)
-    return np.max(Qvals)
+    return np.min(Qvals)
+    # return np.max(Qvals)
     xg = np.array(xg)
     das = dist_angle(x[0], xg[:,0])
     dvs = dist_velocity(x[1], xg[:,1])
@@ -247,7 +248,7 @@ def generate_optimal_paths(Q, Qe, cus, control_freq=60.0, n_paths=100, length_se
     print(f'Qmax: {np.max(Qplot)}, Qmin: {np.min(Qplot)}')
     #plot the Q function before the trajectories
     Qcolors = cm.coolwarm(np.linspace(1, 0, np.max(Qplot)+1))
-    for ia, a in enumerate(As):
+    for ia, a in enumerate(tqdm(As)):
         for iv, v in enumerate(Vs):
             # ax.plot(a, v, 's', color=Qcolors[Qplot[ia, iv]], markersize=4)
             ax.plot(a, v, 'o', color=Qcolors[Qplot[ia, iv]], markersize=4)
@@ -261,13 +262,15 @@ def generate_optimal_paths(Q, Qe, cus, control_freq=60.0, n_paths=100, length_se
 
     # plot some optimal paths starting from some random states
     paths, inputs = [],[] # paths to ret, pi=path index
-    # assert n_paths % 2 == 0, 'n_paths must be even'
-    # x0s = [np.array([uniform(-π, π), uniform(-MAXV/4, MAXV/4)]) for _ in range(n_paths//2)] # random states
-    # x0s = x0s + [-x0 for x0 in x0s] # add the symmetric states
-    # assert len(x0s) == n_paths, f'len(x0s): {len(x0s)}, n_paths: {n_paths}'
-    x0s = [np.array([-π/2, 0])]#, np.array([-π/2, 0])] # initial states
+
+    assert n_paths % 2 == 0, 'n_paths must be even'
+    x0s = [np.array([uniform(-π, π), uniform(-2*MAXV/3, 2*MAXV/3)]) for _ in range(n_paths//2)] # random states
+    x0s = x0s + [-x0 for x0 in x0s] # add the symmetric states
+    assert len(x0s) == n_paths, f'len(x0s): {len(x0s)}, n_paths: {n_paths}'
+
+    # x0s = [np.array([π/2, 0]), np.array([-π/2, 0])] # initial states
+
     for x0 in tqdm(x0s, desc='paths'):
-        print(f'\n\nx0: {x0}')
         path, input = [x0],[0] # path
         t = np.linspace(0, 1/control_freq, int(OPT_FREQ/control_freq)) # time vector
         x = x0 # current state
@@ -276,13 +279,13 @@ def generate_optimal_paths(Q, Qe, cus, control_freq=60.0, n_paths=100, length_se
             for u in cus:
                 nx = simulate(x, t, np.ones_like(t)*u)
 
-                θs, dθs = nx.T #plotting
-                interruptions = np.where(np.abs(np.diff(θs)) > π/2)[0]
-                θs = np.split(θs, interruptions+1)
-                dθs = np.split(dθs, interruptions+1)
-                for θ, dθ in zip(θs, dθs):
-                    # ax.plot(θ, dθ, ':', lw=1, color=cm.viridis(u/MAXU))
-                    ax.plot(θ, dθ, ':', lw=1, color=cm.coolwarm(u/MAXU))
+                # θs, dθs = nx.T #plotting
+                # interruptions = np.where(np.abs(np.diff(θs)) > π/2)[0]
+                # θs = np.split(θs, interruptions+1)
+                # dθs = np.split(dθs, interruptions+1)
+                # for θ, dθ in zip(θs, dθs):
+                #     # ax.plot(θ, dθ, ':', lw=1, color=cm.viridis(u/MAXU))
+                #     ax.plot(θ, dθ, ':', lw=1, color=cm.coolwarm(u/MAXU))
 
                 nxs.append(nx[-1]) # last state
             nxs = np.array(nxs)
@@ -622,7 +625,7 @@ if __name__ == '__main__':
     # bus = find_optimal_inputs(Q, Qe, As, Vs, US)
     bus = None
     # generate the optimal paths
-    paths, inputs, figpaths = generate_optimal_paths(Q, Qe, CUS, control_freq=5.0, n_paths=2, length_seconds=10)
+    paths, inputs, figpaths = generate_optimal_paths(Q, Qe, CUS, control_freq=2.0, n_paths=50, length_seconds=10)
     # plot the results
 
     plots = plot_Q_stuff(Q, As, Vs, (paths, inputs), bus, expl)
