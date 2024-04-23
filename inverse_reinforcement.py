@@ -3,16 +3,12 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from tqdm import tqdm
 from plotting import *
-# from inputs import addittive_resample as expu
-from inputs import frequency_resample as expu 
-# from mpc import simulate
 from numpy.random import uniform, normal
 from time import time
 import multiprocess as mp #note: not multiprocessing
 import os
 np.set_printoptions(precision=3, suppress=True) #set numpy print options
-# os.environ['KMP_DUPLICATE_LIB_OK']='True' # for the multiprocessing to work on MacOS
-np.random.seed(42)
+np.random.seed(42) #set the random seed
  
 SP, DP, CDP = 0, 1, 2 # single pendulum, double pendulum, cart double pendulum
 
