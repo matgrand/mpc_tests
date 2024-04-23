@@ -40,7 +40,7 @@ UCONTR = 66 # density of the input for control
 MAXV = 8 # [rad/s] maximum angular velocity
 MAXU = 5 # maximum control input
 
-ALWAYS_RECALCULATE = True # always recalculate the Q function
+ALWAYS_RECALCULATE = False # always recalculate the Q function
 
 if SP: N = 2 # number of states
 if DP: N = 4 # number of states
@@ -99,7 +99,8 @@ def reach_next(x, xg, u, t=0.003, dt=DT):
     '''Reach the next state given the control input
     @return (is_outside, is_stable, new_state, steps/SIM_FREQ)'''
     xu = x.copy() # current state
-    for ss in range(int(t*SIM_FREQ)): # simulate the pendulum
+    max_samples = max(int(t*SIM_FREQ),1) # maximum number of samples
+    for ss in range(max_samples): # simulate the pendulum
         xu = step(xu, u, DT) # simulation step
         if is_outside(xu): return True, False, xu, ss/SIM_FREQ # out of bounds, break
         da = dist_angle(xu[:N//2], xg[:N//2])
@@ -110,7 +111,6 @@ def reach_next(x, xg, u, t=0.003, dt=DT):
         too_far_v = np.any(dv > DGV) # too far in velocity, we skipped a grid point
         assert not too_far_a or not too_far_v, f'too far in angle and velocity: da:{da}, dv:{dv}, dga:{DGA}, dgv:{DGV}'
         if not in_a or not in_v: return False, False, xu, ss/SIM_FREQ # we arrived at a new grid point
-    print('Warning: simulation did not reach the grid point')
     return False, True, xu, ss/SIM_FREQ # we are stable, no new states reached
 
 def reachable_states(x, us, iu=None, t=0.003, dt=DT):  
@@ -231,15 +231,15 @@ def get_Q_val(Q, x):
     Qvals = [Q[xgi] for xgi in xg_idx]
     # return np.mean(Qvals)
     # return np.min(Qvals)
-    # return np.max(Qvals)
+    return np.max(Qvals)
     xg = np.array(xg)
     das = dist_angle(x[0], xg[:,0])
     dvs = dist_velocity(x[1], xg[:,1])
     was, wvs = das/np.sum(das), dvs/np.sum(dvs)
-    ws = 0.1*was + 0.9*wvs
+    ws = 0.9*was + 0.1*wvs
     return np.sum([w*Qv for w, Qv in zip(ws, Qvals)])
 
-def generate_optimal_paths(Q, Qe, cus, control_freq=30.0, n_paths=100, length_seconds=10):
+def generate_optimal_paths(Q, Qe, cus, control_freq=60.0, n_paths=100, length_seconds=10):
     assert SP and np.all(Qe), 'generate_optimal_paths only works with SP and all states explored'
    
     fig, ax = plt.subplots(figsize=(10,10))
@@ -288,7 +288,6 @@ def generate_optimal_paths(Q, Qe, cus, control_freq=30.0, n_paths=100, length_se
             nxs = np.array(nxs)
             # best_u_idx = np.argmin([Q[get_closest(nx)[0]] for nx in nxs])
             best_u_idx = np.argmin([get_Q_val(Q, nx) for nx in nxs])
-            print(f'best_u_idx: {best_u_idx}, best_u: {cus[best_u_idx]}')
             best_u = cus[best_u_idx]*np.ones_like(t)
             bnx = simulate(x, t, best_u) # simulate the best control input
             path.extend(bnx), input.extend(best_u)
