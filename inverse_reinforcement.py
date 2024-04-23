@@ -238,9 +238,6 @@ def get_Q_val(Q, x):
     ws = 0.1*was + 0.9*wvs
     return np.sum([w*Qv for w, Qv in zip(ws, Qvals)])
 
-
-
-
 def generate_optimal_paths(Q, Qe, cus, control_freq=30.0, n_paths=100, length_seconds=10):
     assert SP and np.all(Qe), 'generate_optimal_paths only works with SP and all states explored'
    
