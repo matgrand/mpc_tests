@@ -340,7 +340,7 @@ def plot_state_trajectories(xs, Qstuff=None, figsize=(8,8), title='State traject
         Q = (-Q.T).astype(np.int32)
         print(f'Qmax: {np.max(Q)}, Qmin: {np.min(Q)}')
         #plot the Q function before the trajectories
-        Qcolors = plt.cm.viridis(np.linspace(0, 1, np.max(Q)+1))
+        Qcolors = plt.cm.viridis(np.linspace(1, 0, np.max(Q)+1))
         for ia, a in enumerate(As):
             for iv, v in enumerate(Vs):
                 ax.plot(a, v, 'o', color=Qcolors[Q[ia, iv]])#, markersize=4)
