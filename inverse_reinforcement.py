@@ -38,7 +38,7 @@ VGRID = int(1.2*AGRID)+1 # number of grid points velocities 25
 UGRID = 13 # number of grid points for the control inputs
 UCONTR = 25 # density of the input for control
 MAXV = 8 # [rad/s] maximum angular velocity
-MAXU = 5 # maximum control input
+MAXU = 6 # maximum control input
 
 ALWAYS_RECALCULATE = False # always recalculate the Q function
 
@@ -625,7 +625,7 @@ if __name__ == '__main__':
     # bus = find_optimal_inputs(Q, Qe, As, Vs, US)
     bus = None
     # generate the optimal paths
-    paths, inputs, figpaths = generate_optimal_paths(Q, Qe, CUS, control_freq=2.0, n_paths=50, length_seconds=10)
+    paths, inputs, figpaths = generate_optimal_paths(Q, Qe, CUS, control_freq=2.0, n_paths=100, length_seconds=10)
     # plot the results
 
     plots = plot_Q_stuff(Q, As, Vs, (paths, inputs), bus, expl)
