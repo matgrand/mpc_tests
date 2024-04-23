@@ -40,7 +40,7 @@ UCONTR = 66 # density of the input for control
 MAXV = 8 # [rad/s] maximum angular velocity
 MAXU = 5 # maximum control input
 
-ALWAYS_RECALCULATE = False # always recalculate the Q function
+ALWAYS_RECALCULATE = True # always recalculate the Q function
 
 if SP: N = 2 # number of states
 if DP: N = 4 # number of states
@@ -95,7 +95,7 @@ def get_closest(x, n=1): # ret (idxs, xgrid)
     if n ==1: return idxs[0], get_xgrid(idxs[0])
     else: return idxs, [get_xgrid(idx) for idx in idxs]
 
-def reach_next(x, xg, u, t=1.0, dt=DT):
+def reach_next(x, xg, u, t=0.003, dt=DT):
     '''Reach the next state given the control input
     @return (is_outside, is_stable, new_state, steps/SIM_FREQ)'''
     xu = x.copy() # current state
@@ -110,9 +110,10 @@ def reach_next(x, xg, u, t=1.0, dt=DT):
         too_far_v = np.any(dv > DGV) # too far in velocity, we skipped a grid point
         assert not too_far_a or not too_far_v, f'too far in angle and velocity: da:{da}, dv:{dv}, dga:{DGA}, dgv:{DGV}'
         if not in_a or not in_v: return False, False, xu, ss/SIM_FREQ # we arrived at a new grid point
+    print('Warning: simulation did not reach the grid point')
     return False, True, xu, ss/SIM_FREQ # we are stable, no new states reached
 
-def reachable_states(x, us, iu=None, t=1.0, dt=DT):  
+def reachable_states(x, us, iu=None, t=0.003, dt=DT):  
     '''Get the reachable states from the current state
     @return (reachable states from current state, time steps cost, indexes of the control inputs)'''
     reachable, costs, idxs = [],[],[] # reachable states and costs
