@@ -44,7 +44,7 @@ def animate_pendulum(x, u, dt, l, fps=60, figsize=(6,6), title='Pendulum'):
     plt.tight_layout()
     return anim
 
-def animate_pendulums(xs, us, dt, l, fps=60, figsize=(6,6), title='Pendulums'):
+def animate_pendulums(xs, us, dt, l, fps=60, figsize=(6,6), title='Pendulums', colors=None):
     #create a new figure
     npe = len(xs) # number of pendulums
     fig, ax = plt.subplots(figsize=figsize)
@@ -53,7 +53,10 @@ def animate_pendulums(xs, us, dt, l, fps=60, figsize=(6,6), title='Pendulums'):
     ax.set_aspect('equal')
     ax.grid(True)
     ax.set_title(title)
-    lines = [ax.plot([], [], 'o-', lw=3, color='blue')[0] for _ in range(npe)]
+    # make npe random colors
+    if colors is None: colors = plt.cm.tab20(np.linspace(0, 1, npe))
+    else: assert len(colors) == npe, f'len(colors): {len(colors)}, npe: {npe}'
+    lines = [ax.plot([], [], 'o-', lw=3, color=c)[0] for c in colors]
     inputs = [ax.plot([], [], '-', lw=2, color=C)[0] for _ in range(npe)]
     time_template = 'time = %.1fs'
     time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
