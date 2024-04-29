@@ -41,7 +41,11 @@ def potential_energy(x): return fV(*x.T)
 del t, θ, dθ, leq, T, V, L, x, y, u # delete the symbolic variables
 
 def fixed_step(x, u, dt, wa): 
-    '''Integrate the differential equation using the Euler method'''
+    '''Integrate the differential equation using the Euler method
+    x: state vector
+    u: control input
+    dt: time step
+    wa: wrap around the angle to [-π, π]'''
     θ, dθ = x # split the state vector
     dθ = dθ + fddθ(θ, dθ, u)[0]*dt # integrate the acceleration
     θ = θ + dθ*dt # integrate the velocity
