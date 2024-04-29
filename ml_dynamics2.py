@@ -92,7 +92,7 @@ if __name__ == '__main__':
     edl = DataLoader(eds, batch_size=BATCH_SIZE, shuffle=False, num_workers=WORKERS, persistent_workers=True)
     
     # create the model
-    model = PendulumModel(sd=2, id=1, hd=256, od=2)
+    model = PendulumModel(sd=2, id=1, hd=400, od=2)
 
     if LOAD_PRETRAIN:
         model.load_state_dict(torch.load('tmp/pendulum_model1.pt'))
