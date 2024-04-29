@@ -71,7 +71,7 @@ def nn_step(x, u, model):
 if __name__ == '__main__':
     os.system('cls' if os.name == 'nt' else 'clear')
 
-    N_EPOCHS = 200
+    N_EPOCHS = 400
     
     # create the dataset
     tds = Pendulum1StepDataset(DT, N_SAMPLES) # training dataset
@@ -89,6 +89,7 @@ if __name__ == '__main__':
     print('Training completed')
 
     # save the model
+    if not os.path.exists('tmp'): os.makedirs('tmp')
     torch.save(model.state_dict(), 'tmp/pendulum_model.pt')
     
     # test the model
