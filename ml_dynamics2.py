@@ -84,6 +84,10 @@ def nn_step(x, u, model):
 if __name__ == '__main__':
     # os.system('cls' if os.name == 'nt' else 'clear')
     # os.system('rm -rf lightning_logs') # remove the logs
+
+    #start tensorboard
+    os.system('tensorboard --logdir=lightning_logs/ --port=6006 &')
+
     start_time = time()
 
     # create the dataset
