@@ -3,12 +3,16 @@
 #SBATCH --output=logs/output.%j.out
 #SBATCH --partition=allgroups
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=16
 #SBATCH --mem=16G
-#SBATCH --time=00:20:00
-#SBATCH --gres=gpu:rtx:1
+#SBATCH --time=00:50:00
+#SBATCH --gres=gpu:a40:1
 cd $HOME/repos/mpc_tests
 echo "Starting job"
+
+#start tensorboard
+srun singularity exec --nv $HOME/slurm_singularity_cluster/mycontainer.sif python -m tensorboard.main --logdir=lightning_logs --port=6006 &
+
 srun singularity exec --nv $HOME/slurm_singularity_cluster/mycontainer.sif python -u ml_dynamics2.py
 echo "Job finished"
 

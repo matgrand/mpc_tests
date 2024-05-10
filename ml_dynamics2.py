@@ -14,7 +14,7 @@ DT = 1/60 # time step
 NT_SAMPLES = 500_000 # number of training samples
 NV_SAMPLES = NT_SAMPLES//3 # number of validation samples
 N_EPOCHS = 200 # number of epochs
-WORKERS = 8 # macos: 7, ubuntu: 15
+WORKERS = 16 # macos: 7, ubuntu: 15
 BATCH_SIZE = NT_SAMPLES // WORKERS # batch size
 LR = 3e-4 # learning rate
 
@@ -160,5 +160,6 @@ if __name__ == '__main__':
     anim.save('logs/pendulum.gif', writer='imagemagick', fps=30)
     fig1.savefig('logs/pendulum_trajectories.png')
     fig2.savefig('logs/pendulum_comparison.png')
-    print(f'Execution time: {time()-start_time:.2f} seconds')
+
+    print(f'Execution time: {(time()-start_time)/60:.2f} mins')
     print('Done')
