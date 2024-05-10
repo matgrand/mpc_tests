@@ -2,7 +2,7 @@ import torch, os, numpy as np, matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import lightning as L
-
+from time import time, sleep
 from single_pendulum import *
 from plotting import *
 
@@ -11,10 +11,10 @@ LOAD_PRETRAIN = False
 MAXV = 8 # maximum velocity
 MAXU = 4 # maximum control input
 DT = 1/60 # time step 
-NT_SAMPLES = 30000 # number of training samples
+NT_SAMPLES = 500_000 # number of training samples
 NV_SAMPLES = NT_SAMPLES//3 # number of validation samples
 N_EPOCHS = 200 # number of epochs
-WORKERS = 15 # macos: 7, ubuntu: 15
+WORKERS = 8 # macos: 7, ubuntu: 15
 BATCH_SIZE = NT_SAMPLES // WORKERS # batch size
 LR = 3e-4 # learning rate
 
@@ -82,9 +82,10 @@ def nn_step(x, u, model):
         return model(input.unsqueeze(0)).squeeze(0).detach().numpy()
 
 if __name__ == '__main__':
-    os.system('cls' if os.name == 'nt' else 'clear')
+    # os.system('cls' if os.name == 'nt' else 'clear')
     # os.system('rm -rf lightning_logs') # remove the logs
-    
+    start_time = time()
+
     # create the dataset
     tds = Pendulum1StepDataset(DT, NT_SAMPLES) # training dataset
     eds = Pendulum1StepDataset(DT, NV_SAMPLES) # evaluation dataset
@@ -92,7 +93,7 @@ if __name__ == '__main__':
     edl = DataLoader(eds, batch_size=BATCH_SIZE, shuffle=False, num_workers=WORKERS, persistent_workers=True)
     
     # create the model
-    model = PendulumModel(sd=2, id=1, hd=400, od=2)
+    model = PendulumModel(sd=2, id=1, hd=200, od=2)
 
     if LOAD_PRETRAIN:
         model.load_state_dict(torch.load('tmp/pendulum_model1.pt'))
@@ -153,4 +154,11 @@ if __name__ == '__main__':
     ax2.set_xlabel('angle')
     ax2.set_ylabel('angular velocity')
 
-    plt.show()
+    # plt.show()
+    #save the plots in logs
+    if not os.path.exists('logs'): os.makedirs('logs')
+    anim.save('logs/pendulum.gif', writer='imagemagick', fps=30)
+    fig1.savefig('logs/pendulum_trajectories.png')
+    fig2.savefig('logs/pendulum_comparison.png')
+    print(f'Execution time: {time()-start_time:.2f} seconds')
+    print('Done')

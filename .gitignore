@@ -3,3 +3,4 @@ __pycache__/*
 tmp/*
 .DS_Store
 lightning_logs/*
+logs/*
