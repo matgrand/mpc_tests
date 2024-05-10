@@ -11,12 +11,12 @@ LOAD_PRETRAIN = False
 MAXV = 8 # maximum velocity
 MAXU = 4 # maximum control input
 DT = 1/60 # time step 
-NT_SAMPLES = 500_000 # number of training samples
+NT_SAMPLES = 5_000_000 # number of training samples
 NV_SAMPLES = NT_SAMPLES//3 # number of validation samples
-N_EPOCHS = 200 # number of epochs
+N_EPOCHS = 400 # number of epochs
 WORKERS = 16 # macos: 7, ubuntu: 15
 BATCH_SIZE = NT_SAMPLES // WORKERS # batch size
-LR = 3e-4 # learning rate
+LR = 1e-4 # learning rate
 
 SIMT = 15 # simulation time
 
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     # os.system('rm -rf lightning_logs') # remove the logs
 
     #start tensorboard
-    os.system('tensorboard --logdir=lightning_logs/ --port=6006 &')
+    # os.system('tensorboard --logdir=lightning_logs/ --port=6006 --bind_all &')
 
     start_time = time()
 

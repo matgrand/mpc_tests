@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=16G
-#SBATCH --time=00:50:00
+#SBATCH --time=02:50:00
 #SBATCH --gres=gpu:a40:1
 cd $HOME/repos/mpc_tests
 echo "Starting job"
