@@ -6,15 +6,17 @@ from time import time, sleep
 from single_pendulum import *
 from plotting import *
 
-LOAD_PRETRAIN = False
+torch.set_float32_matmul_precision('medium')
+
+LOAD_PRETRAIN = True
 
 MAXV = 8 # maximum velocity
 MAXU = 4 # maximum control input
 DT = 1/60 # time step 
-NT_SAMPLES = 500_000 # number of training samples
+NT_SAMPLES = 5_000_000 # number of training samples
 NV_SAMPLES = NT_SAMPLES//3 # number of validation samples
 N_EPOCHS = 200 # number of epochs
-WORKERS = 10 # macos: 10, ubuntu: 15
+WORKERS = 16 # macos: 10, ubuntu: 15, cluster: check job.sh
 BATCH_SIZE = NT_SAMPLES // WORKERS # batch size
 LR = 1e-4 # learning rate
 
@@ -22,11 +24,8 @@ SIMT = 15 # simulation time
 
 WRAP_AROUND = False # wrap around the angle to [-π, π]
 
-def to_torch(x: np.ndarray) -> torch.tensor:
-    return 0
-
 def create_dataset(n, dt, file_path='pendulum_dataset.npz'):
-    θ0s = np.random.uniform(-π, π, n).astype(np.float32)
+    θ0s = np.random.uniform(-2*π, 2*π, n).astype(np.float32)
     dθ0s = np.random.uniform(-MAXV, MAXV, n).astype(np.float32)
     # us = np.random.uniform(-MAXU, MAXU, n).astype(np.float32)
     us = np.zeros(n, dtype=np.float32)
@@ -38,7 +37,6 @@ def create_dataset(n, dt, file_path='pendulum_dataset.npz'):
         x1s[i] = step(x0s[i], us[i], dt, wa=WRAP_AROUND) # simulate the pendulum
     np.savez(file_path, x0s=x0s, us=us, x1s=x1s, dt=dt, n=n) # save the dataset in a file
 
-    
 # torch dataset
 class Pendulum1StepDataset(Dataset):
     def __init__(self, file_path):
@@ -65,6 +63,7 @@ class PendulumModel(L.LightningModule):
         self.l2 = torch.nn.Linear(hd, hd)
         self.out = torch.nn.Linear(hd, od)
         self.loss = torch.nn.MSELoss()
+        self.best_val_loss = np.inf
 
     def forward(self, x):
         x = torch.relu(self.input(x))
@@ -85,6 +84,11 @@ class PendulumModel(L.LightningModule):
         y_hat = self(x)
         loss = self.loss(y_hat, y)
         self.log('val_loss', loss)
+
+        if loss < self.best_val_loss:
+            self.best_val_loss = loss
+            torch.save(self.state_dict(), 'tmp/best_pendulum_model.pt')
+
         return loss
         
     def configure_optimizers(self):
@@ -101,8 +105,11 @@ if __name__ == '__main__':
 
     start_time = time()
 
+    # create directories
+    if not os.path.exists('ds'): os.makedirs('ds') # create the directory to save the dataset
+    if not os.path.exists('tmp'): os.makedirs('tmp') # create the directory to save the model
+
     # datasets & dataloaders
-    if not os.path.exists('ds'): os.makedirs('ds') # create the directory
     tds_path = f'ds/train_ds_pendulum_{NT_SAMPLES}.npz'
     vds_path = f'ds/val_ds_pendulum_{NV_SAMPLES}.npz'
     if not os.path.exists(tds_path): create_dataset(NT_SAMPLES, DT, tds_path)
@@ -115,17 +122,16 @@ if __name__ == '__main__':
     # create the model
     model = PendulumModel(sd=2, id=1, hd=400, od=2)
 
-    if LOAD_PRETRAIN:
-        model.load_state_dict(torch.load('tmp/pendulum_model1.pt'))
-        print('Model loaded')
-    else:
+    if not LOAD_PRETRAIN:
         trainer = L.Trainer(max_epochs=N_EPOCHS,
                             log_every_n_steps=1,)
         trainer.fit(model, tdl, edl)
         print('Training completed')
         # save the model
-        if not os.path.exists('tmp'): os.makedirs('tmp')
-        torch.save(model.state_dict(), 'tmp/pendulum_model.pt')
+        torch.save(model.state_dict(), 'tmp/last_pendulum_model.pt')
+
+    model.load_state_dict(torch.load('tmp/best_pendulum_model.pt'))
+    print('Model loaded')
         
     # test the model
     model.eval()
@@ -157,12 +163,17 @@ if __name__ == '__main__':
     fig2, ax2 = plt.subplots(1, 1, figsize=(10,10))
     N_GRID = 50
     As, Vs = np.linspace(-π, π, N_GRID), np.linspace(-MAXV, MAXV, N_GRID)
+    Anorms = np.zeros((N_GRID, N_GRID))
+    Vnorms = np.zeros((N_GRID, N_GRID))
     for ia, a in enumerate(tqdm(As)):
         for iv, v in enumerate(Vs):
             x0 = np.array([a, v])
             u = 0
-            x1 = step(x0, u, DT, wa=WRAP_AROUND)
+            # x1 = step(x0, u, DT, wa=WRAP_AROUND)
+            x1 = step(x0, u, DT, wa=True)
             x1_nn = nn_step(x0, u, model)
+            Anorms[ia, iv] = np.linalg.norm(x1[0]-x1_nn[0])
+            Vnorms[ia, iv] = np.linalg.norm(x1[1]-x1_nn[1])
             #plot a line from x0 to x1
             if np.linalg.norm(x0-x1_nn) < 0.5:
                 ax2.plot([a, x1_nn[0]], [v, x1_nn[1]], 'r')
@@ -172,6 +183,21 @@ if __name__ == '__main__':
     ax2.grid(True)
     ax2.set_xlabel('angle')
     ax2.set_ylabel('angular velocity')
+    fig3, (ax3a, ax3b) = plt.subplots(1, 2, figsize=(20,10))
+    c1 = ax3a.contourf(As, Vs, Anorms.T, levels=50)
+    fig3.colorbar(c1, ax=ax3a)
+    ax3a.set_title('norm of the difference in angle')
+    ax3a.set_xlabel('angle')
+    ax3a.set_ylabel('angular velocity')
+
+    c2 = ax3b.contourf(As, Vs, Vnorms.T, levels=50)
+    fig3.colorbar(c2, ax=ax3b)
+    ax3b.set_title('norm of the difference in angular velocity')
+    ax3b.set_xlabel('angle')
+    ax3b.set_ylabel('angular velocity')
+
+    print(f'Anorms: avg: {np.mean(Anorms):.5f}, std: {np.std(Anorms):.5f}, min: {np.min(Anorms):.5f}, max: {np.max(Anorms):.5f}')
+    print(f'Vnorms: avg: {np.mean(Vnorms):.5f}, std: {np.std(Vnorms):.5f}, min: {np.min(Vnorms):.5f}, max: {np.max(Vnorms):.5f}')
 
     plt.show()
     #save the plots in logs

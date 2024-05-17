@@ -11,7 +11,7 @@ cd $HOME/repos/mpc_tests
 echo "Starting job"
 
 #start tensorboard
-srun singularity exec --nv $HOME/slurm_singularity_cluster/mycontainer.sif python -u ml_dynamics2.py
+srun singularity exec --nv $HOME/slurm_singularity_cluster/mycontainer.sif python ml_dynamics2.py
 echo "Job finished"
 
 # note: check that the logs directory exists
