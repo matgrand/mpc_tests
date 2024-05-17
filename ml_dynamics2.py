@@ -11,10 +11,10 @@ LOAD_PRETRAIN = False
 MAXV = 8 # maximum velocity
 MAXU = 4 # maximum control input
 DT = 1/60 # time step 
-NT_SAMPLES = 5_000_000 # number of training samples
+NT_SAMPLES = 500_000 # number of training samples
 NV_SAMPLES = NT_SAMPLES//3 # number of validation samples
-N_EPOCHS = 400 # number of epochs
-WORKERS = 16 # macos: 7, ubuntu: 15
+N_EPOCHS = 200 # number of epochs
+WORKERS = 10 # macos: 10, ubuntu: 15
 BATCH_SIZE = NT_SAMPLES // WORKERS # batch size
 LR = 1e-4 # learning rate
 
@@ -24,22 +24,37 @@ WRAP_AROUND = False # wrap around the angle to [-π, π]
 
 def to_torch(x: np.ndarray) -> torch.tensor:
     return 0
+
+def create_dataset(n, dt, file_path='pendulum_dataset.npz'):
+    θ0s = np.random.uniform(-π, π, n).astype(np.float32)
+    dθ0s = np.random.uniform(-MAXV, MAXV, n).astype(np.float32)
+    # us = np.random.uniform(-MAXU, MAXU, n).astype(np.float32)
+    us = np.zeros(n, dtype=np.float32)
+    x0s = np.vstack((θ0s, dθ0s)).T # initial states
+    x1s = np.zeros((n, 2), dtype=np.float32) # final states
+    assert x0s.shape == x1s.shape, f'x0s: {x0s.shape}, x1s: {x1s.shape}'
+    assert x0s.dtype == x1s.dtype == np.float32, f'x0s: {x0s.dtype}, x1s: {x1s.dtype}'
+    for i in tqdm(range(n)): 
+        x1s[i] = step(x0s[i], us[i], dt, wa=WRAP_AROUND) # simulate the pendulum
+    np.savez(file_path, x0s=x0s, us=us, x1s=x1s, dt=dt, n=n) # save the dataset in a file
+
     
 # torch dataset
 class Pendulum1StepDataset(Dataset):
-    def __init__(self, dt, n):
-        self.dt = dt
-        self.n = n
-
+    def __init__(self, file_path):
+        super(Pendulum1StepDataset, self).__init__()
+        data = np.load(file_path)
+        x0s = torch.tensor(data['x0s'], dtype=torch.float32)
+        us = torch.tensor(data['us'], dtype=torch.float32)
+        self.x0s = torch.cat((x0s, us.unsqueeze(1)), dim=1) # concatenate the states and control inputs
+        self.x1s = torch.tensor(data['x1s'], dtype=torch.float32)
+        self.n = len(self.x0s)
+    
     def __len__(self):
         return self.n
     
     def __getitem__(self, idx):
-        θ0, dθ0, u = np.random.uniform(-π, π), np.random.uniform(-MAXV, MAXV), np.random.uniform(-MAXU, MAXU)
-        x1 = step(np.array([θ0, dθ0]), u, self.dt, wa=WRAP_AROUND)
-        input = torch.tensor(np.array([θ0, dθ0, u]), dtype=torch.float32)
-        output = torch.tensor(x1, dtype=torch.float32)
-        return input, output
+        return self.x0s[idx], self.x1s[idx]
     
 # set the lightning model
 class PendulumModel(L.LightningModule):
@@ -82,22 +97,23 @@ def nn_step(x, u, model):
         return model(input.unsqueeze(0)).squeeze(0).detach().numpy()
 
 if __name__ == '__main__':
-    # os.system('cls' if os.name == 'nt' else 'clear')
     # os.system('rm -rf lightning_logs') # remove the logs
-
-    #start tensorboard
-    # os.system('tensorboard --logdir=lightning_logs/ --port=6006 --bind_all &')
 
     start_time = time()
 
-    # create the dataset
-    tds = Pendulum1StepDataset(DT, NT_SAMPLES) # training dataset
-    eds = Pendulum1StepDataset(DT, NV_SAMPLES) # evaluation dataset
+    # datasets & dataloaders
+    if not os.path.exists('ds'): os.makedirs('ds') # create the directory
+    tds_path = f'ds/train_ds_pendulum_{NT_SAMPLES}.npz'
+    vds_path = f'ds/val_ds_pendulum_{NV_SAMPLES}.npz'
+    if not os.path.exists(tds_path): create_dataset(NT_SAMPLES, DT, tds_path)
+    if not os.path.exists(vds_path): create_dataset(NV_SAMPLES, DT, vds_path)
+    tds = Pendulum1StepDataset(tds_path) # training dataset
+    eds = Pendulum1StepDataset(vds_path) # validation dataset
     tdl = DataLoader(tds, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS, persistent_workers=True)
     edl = DataLoader(eds, batch_size=BATCH_SIZE, shuffle=False, num_workers=WORKERS, persistent_workers=True)
     
     # create the model
-    model = PendulumModel(sd=2, id=1, hd=200, od=2)
+    model = PendulumModel(sd=2, id=1, hd=400, od=2)
 
     if LOAD_PRETRAIN:
         model.load_state_dict(torch.load('tmp/pendulum_model1.pt'))
@@ -141,7 +157,6 @@ if __name__ == '__main__':
     fig2, ax2 = plt.subplots(1, 1, figsize=(10,10))
     N_GRID = 50
     As, Vs = np.linspace(-π, π, N_GRID), np.linspace(-MAXV, MAXV, N_GRID)
-    tds = Pendulum1StepDataset(DT, NT_SAMPLES) # training dataset
     for ia, a in enumerate(tqdm(As)):
         for iv, v in enumerate(Vs):
             x0 = np.array([a, v])
@@ -158,7 +173,7 @@ if __name__ == '__main__':
     ax2.set_xlabel('angle')
     ax2.set_ylabel('angular velocity')
 
-    # plt.show()
+    plt.show()
     #save the plots in logs
     if not os.path.exists('logs'): os.makedirs('logs')
     anim.save('logs/pendulum.gif', writer='imagemagick', fps=30)
