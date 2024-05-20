@@ -52,7 +52,9 @@ if SP:
         p = x[:,0] / π # p is between -1 and 1
         wp = np.sqrt(np.abs(p)) # use position as a weight for T
         # wp = np.abs(p) # use position as a weight for T
-        tw = np.linspace(0, 1, n)#**2 # time weight
+        if n > 1: tw = np.linspace(0, 1, n)#**2 # time weight
+        elif n == 1: tw = np.array([1])
+        else: raise ValueError('n must be > 0')
         ve = -1 * potential_energy(x) * tw # potential energy
         te = 1 * kinetic_energy(x) * wp * tw # kinetic energy
         uc = 0*0.01 * eu**2 * wp # control input
@@ -186,7 +188,7 @@ def test_1iter_mpc():
     lr = 1e2 # learning rate for the gradient descent
 
     ## RUN THE MPC
-    u, xs, us, Ts, Vs = mpc_iter(x0, 0, to, lr, OPT_ITERS, MIN_LR, INPUT_SIZE, app_cost=True) # run the MPC
+    u, xs, us, Ts, Vs = mpc_iter(x0, 0.0, to, lr, OPT_ITERS, MIN_LR, INPUT_SIZE, app_cost=True) # run the MPC
 
     # SIMULATION 
     t = np.linspace(0, T, int(T*SIM_FREQ)) # time steps
@@ -282,96 +284,49 @@ def test_mpc():
     print()
     return a3, ap1
 
-def single_free_evolution():
+def free_evolutions():
     ''' Show the free evolution of the single pendulum'''
     #initial state: [angle, angular velocity]
     if SP: x0 = np.array([0.2, .1]) # [rad, rad/s] # SINGLE PENDULUM
     if DP: x0 = np.array([0.1, 0.1, 0, 0]) # [rad, rad/s, rad, rad/s] # DOUBLE PENDULUM
     # Time
-    T = 4 # simulation time
+    T = 16 # simulation time
     f = SIM_FREQ # frequency of the time steps
 
     t = np.linspace(0, T, int(T*f)) # time steps
     dt = t[1]-t[0] # time step
+    eu = np.zeros_like(t) # control input (zero)
     print(f'T: {T}, f: {f}, dt: {dt:.4f}')
-
-    sf11, sf12, sf13, sf14 = None, None, None, None
-    eu = 0 + np.zeros(len(t)) # control input
-    
-    x = simulate(x0, t, eu) # simulate the pendulum
-
-    tr = t[::-1] # reverse the time steps
-    xr0 = x[-1] # final state
-    xr = simulate(xr0, tr, eu) # reverse simulate the pendulum
-    xrr = xr[::-1] # reverse the reverse simulation
-
-    # XS, US = np.array([x,xrr]), np.array([eu,eu]) # states and control inputs
-    # if SP: sf14 = animate_pendulums(XS,US,dt,l,60,(6,6))
-    # if DP: sf14 = animate_double_pendulums(XS,US,dt,l1,l2,60,(6,6))
 
     # multiple reverse simulations from instability point
     NS = 50 # number of simulations
-    # x0s = np.zeros_like(xr0) + normal(0, 0.001, (NS, len(xr0))) # initial states
-    x0s = np.zeros_like(xr0) + normal(0, 0.5, (NS, len(xr0))) # initial states
-    xrs = np.zeros((NS, len(tr), len(xr0))) # reverse states
-    for i in tqdm(range(NS)): xrs[i] = simulate(x0s[i], tr, eu) # reverse simulate the pendulums
-    Trs = np.array([kinetic_energy(x) for x in xrs]) # kinetic energy
-    Vrs = np.array([potential_energy(x) for x in xrs]) # potential energy
-    TVrs = Trs + Vrs # total energy
-
-    x0sr = xrs[:,-1] # final states
-    xrrs = np.zeros_like(xrs) # reverse reverse states
-    for i in tqdm(range(NS)): xrrs[i] = simulate(x0sr[i], t, eu) # reverse reverse simulate the pendulums
-    Trrs = np.array([kinetic_energy(x) for x in xrrs]) # kinetic energy
-    Vrrs = np.array([potential_energy(x) for x in xrrs]) # potential energy
-    TVrrs = Trrs + Vrrs # total energy
+    x0s = np.array([0, 0]) + normal(0,1,(NS,2)) # initial states
+    xs = np.zeros((NS, len(t), len(x0))) # states
+    for i in tqdm(range(NS)): xs[i] = simulate(x0s[i], t, eu) # reverse simulate the pendulums
+    Ts = np.array([kinetic_energy(x) for x in xs]) # kinetic energy
+    Vs = np.array([potential_energy(x) for x in xs]) # potential energy
+    TVs = Ts + Vs # total energy
 
     #plot the kinetic and potential energies
-    fig, ax = plt.subplots(3,2, figsize=(10,8))
-    ax[0,0].plot(tr, Trs.T, alpha=0.5)
-    ax[0,1].plot(t, Trrs.T, alpha=0.5)
-    ax[0,0].set_title('Kinetic Energy')
-    ax[1,0].plot(tr, Vrs.T, alpha=0.5)
-    ax[1,1].plot(t, Vrrs.T, alpha=0.5)
-    ax[1,0].set_title('Potential Energy')
-    ax[2,0].plot(tr, TVrs.T, alpha=0.5)
-    ax[2,1].plot(t, TVrrs.T, alpha=0.5)
-    ax[2,0].set_title('Total Energy')
+    tvt, ax = plt.subplots(3,1, figsize=(10,8))
+    ax[0].plot(t, Ts.T, alpha=0.5)
+    ax[0].set_title('Kinetic Energy')
+    ax[1].plot(t, Vs.T, alpha=0.5)
+    ax[1].set_title('Potential Energy')
+    ax[2].plot(t, TVs.T, alpha=0.5)
+    ax[2].set_title('Total Energy')
 
-    xrsr = xrs[:,::-1] # reverse the reverse simulations
-    XS, US = xrsr, np.zeros((NS, len(tr))) # states and control inputs
-    print(f'XS: {XS.shape}, US: {US.shape}')
-    if SP: sf13 = animate_pendulums(XS,US,dt,l,60,(6,6))
-    if DP: sf13 = animate_double_pendulums(XS,US,dt,l1,l2,60,(6,6))
-
-    XS = xrrs # states
-    if SP: sf12 = animate_pendulums(XS,US,dt,l,60,(6,6))
-    if DP: sf12 = animate_double_pendulums(XS,US,dt,l1,l2,60,(6,6))
-    
-    if SP:
-        # plot trajecotries in state space
-        # translate all the angles from [-π, π] to [0, 2π]
-        xrs[:,:,0] = np.where(xrs[:,:,0]<0, xrs[:,:,0]+2*π, xrs[:,:,0])
-        xrrs[:,:,0] = np.where(xrrs[:,:,0]<0, xrrs[:,:,0]+2*π, xrrs[:,:,0])
-        sf15, ax = plt.subplots(1,1, figsize=(10,10))
-        ax.plot(xrsr[:,:,0].T, xrsr[:,:,1].T, alpha=0.5)
-        ax.plot(xrrs[:,:,0].T, xrrs[:,:,1].T, alpha=0.5)
-        ax.set_xlabel('angle')
-        ax.set_ylabel('angular velocity')
-        ax.grid(True)
-        ax.set_xticks(np.arange(0, 2*π+1, π/2))
-        ax.set_xticklabels(['0', 'π/2', 'π', '3π/2', '2π'])
-        sf16 = plot_state_trajectories(xrsr)
-    else: sf15, sf16 = None, None
-
-
-    return sf11, sf12, sf13, sf14, sf15, sf16
-
-
-
-    # return sf11
+    XS, US = xs, np.zeros((NS, len(t))) # states and control inputs
+    if SP: 
+        fea = animate_pendulums(XS,US,dt,l,60,(6,6))
+        fest = plot_state_trajectories(XS, center=True)
+    elif DP: 
+        fea = animate_double_pendulums(XS,US,dt,l1,l2,60,(6,6))
+    else: fea, fest = None, None
+    return fea, fest, tvt
 
 def plot_cost_function():
+    assert SP, 'Single pendulum only for now...'
     #create a 3d plot
     from matplotlib import cm
     fig = plt.figure()
@@ -387,10 +342,9 @@ def plot_cost_function():
 
     for i in tqdm(range(N)):
         for j in range(N):
-            p,v = xs[i], ys[j] # position and velocity
-            xi = np.array([p,v]) # state vector
-            c = cost(np.array([xi]), np.array([0]), 0)
-            Z[j,i] = c 
+            xij = np.array([xs[i], ys[j]]).reshape(1,2)
+            eu = np.zeros((1,))
+            Z[j,i] = cost(xij, eu, 0)
 
     #plot the cost function
     ax.plot_surface(X, Y, Z, cmap=cm.coolwarm)
@@ -403,10 +357,10 @@ if __name__ == '__main__':
     os.system('clear')
     main_start = time()
 
-    # pc = plot_cost_function()
-    sf = single_free_evolution()
-    # t1 = test_1iter_mpc()
-    # tm = test_mpc()
+    pc = plot_cost_function()
+    sf = free_evolutions()
+    t1 = test_1iter_mpc()
+    tm = test_mpc()
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
     plt.show()
