@@ -8,12 +8,12 @@ from plotting import *
 
 torch.set_float32_matmul_precision('medium')
 
-LOAD_PRETRAIN = True
+LOAD_PRETRAIN = False
 
 MAXV = 8 # maximum velocity
 MAXU = 4 # maximum control input
 DT = 1/60 # time step 
-NT_SAMPLES = 5_000_000 # number of training samples
+NT_SAMPLES = 10_000_000 # number of training samples
 NV_SAMPLES = NT_SAMPLES//3 # number of validation samples
 N_EPOCHS = 200 # number of epochs
 WORKERS = 16 # macos: 10, ubuntu: 15, cluster: check job.sh
