@@ -37,7 +37,7 @@ ax[1].set_title('Velocity')
 ax[0].legend()
 ax[1].legend()
 
-anims = animate_pendulums(xs.transpose(1, 0, 2), us.T, dt, l1, 60, (6,6))
+anims = animate_pendulums(xs.transpose(1,0,2), us.T, dt, l1, 60, (6,6))
 
 # double pendulum
 from eqns_double_pendulum import f_ddθ1, f_ddθ2, l1, l2, m1, m2, g, μ1, μ2
@@ -79,7 +79,7 @@ for i in range(NP):
 ax[0].set_title('Angle')
 ax[1].set_title('Velocity')
 
-anims2 = animate_double_pendulums(xs.transpose(1, 0, 2), us.T, dt, l1, l2, 60, (6,6))
+anims2 = animate_double_pendulums(xs.transpose(1,0,2), us.T, dt, l1, l2, 60, (6,6))
 
 plt.show()
 
