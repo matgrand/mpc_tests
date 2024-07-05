@@ -20,7 +20,7 @@ from plotting import animate_pendulum, animate_pendulums
 anim = animate_pendulum(x, u, dt, l1, 60, (6,6))
 
 # simulate multiple pendulums 
-NP = 50 # number of pendulums
+NP = 10 # number of pendulums
 xs = np.zeros((N, NP, 2)) # state vector
 us = np.zeros((N, NP)) # control input
 xs[0,:] = 15*np.random.rand(NP, 2) # initial conditions
