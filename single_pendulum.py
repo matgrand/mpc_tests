@@ -31,6 +31,9 @@ leq = L.diff(θ) - (L.diff(dθ)).diff(t) -μ*dθ + u # Euler-Lagrange equation
 # Solve the differential equation
 ddθ = sp.solve([leq], [ddθ], simplify=False)[0] # solve the differential equation for the acceleration
 
+# print the differential equation in a readable form
+print(f'The differential equation is: {ddθ[0]}')
+
 # lambdify to use with numpy
 fddθ = sp.lambdify((θ, dθ, u), ddθ, 'numpy') 
 fT = sp.lambdify((θ, dθ), T, 'numpy')

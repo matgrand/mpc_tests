@@ -94,3 +94,20 @@ def symplectic_step(x, u, dt): # NOTE: THIS IS COMPLETELY WRONG
 
 
 def step(x, u, dt): return euler_step(x, u, dt)
+
+if __name__ == '__main__':
+    # create a simulation
+    N, dt = 10000, 0.001 # number of steps and time step
+    t = np.linspace(0, N*dt, N) # time vector
+    u = 0*np.sin(t) # control input
+    x = np.zeros((N, 4)) # state vector
+    x[0] = np.array([0.1, 0, 0, 0]) # initial conditions
+
+    # simulate the pendulum
+    for i in range(1, N): 
+        x[i] = step(x[i-1], u[i], dt)
+
+    # animate the results
+    anim = animate_double_pendulum(x, u, dt, l1, l2, 60, (6,6))
+
+    plt.show()
