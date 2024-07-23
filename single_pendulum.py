@@ -1,86 +1,45 @@
 import numpy as np; π = np.pi
-import sympy as sp
+from eqns_single_pendulum import *
+WRAP = True
 
-# Constants
-g = 9.81 # 9.81 # [m/s^2] gravity
-l = 1 # [m] length of the pendulum
-m = 1 # [kg] mass of the pendulum
-μ = 0.4 # [kg/s] damping coefficient
-WRAP_AROUND = True # wrap the angle to [-π, π]
-
-if µ < 0: print('Warning: the damping coefficient is negative')
-
-# calculate the dynamics using symbolic math
-t = sp.symbols('t')
-θ = sp.symbols('θ', cls=sp.Function)(t) # angle (state)
-u = sp.symbols('u', cls=sp.Function)(t) # control input
-dθ = θ.diff(t) # angular velocity
-ddθ = dθ.diff(t) # angular acceleration
-
-# let's use the Lagrangian
-x, y = l*sp.sin(θ), l*sp.cos(θ) # position of the pendulum
-dx, dy = x.diff(t), y.diff(t) # velocity of the pendulum
-T = 1/2 * m * (dx**2 + dy**2) # Kinetic energy
-min_V = -m*g*l # minimum potential energy, to set the zero level
-V = m*g*y - min_V # Potential energy
-L = T - V # Lagrangian
-
-# Euler-Lagrange equation
-leq = L.diff(θ) - (L.diff(dθ)).diff(t) -μ*dθ + u # Euler-Lagrange equation
-
-# Solve the differential equation
-ddθ = sp.solve([leq], [ddθ], simplify=False)[0] # solve the differential equation for the acceleration
-
-# print the differential equation in a readable form
-print(f'The differential equation is: {ddθ[0]}')
-
-# lambdify to use with numpy
-fddθ = sp.lambdify((θ, dθ, u), ddθ, 'numpy') 
-fT = sp.lambdify((θ, dθ), T, 'numpy')
-fV = sp.lambdify((θ, dθ), V, 'numpy') 
-def kinetic_energy(x): return fT(*x.T)
-def potential_energy(x): return fV(*x.T)
-
-del t, θ, dθ, leq, T, V, L, x, y, u # delete the symbolic variables
-
-def fixed_step(x, u, dt, wa): 
+def step(x, u, dt, wa=WRAP): 
     '''Integrate the differential equation using the Euler method
-    x: state vector
-    u: control input
+    x: state vector (# pendulums, 2)
+    u: control input (# pendulums)
     dt: time step
     wa: wrap around the angle to [-π, π]'''
-    θ, dθ = x # split the state vector
-    dθ = dθ + fddθ(θ, dθ, u)[0]*dt # integrate the acceleration
-    θ = θ + dθ*dt # integrate the velocity
+    θ, dθ = x.T # split the state vector
+    ddθ = f_ddθ1(θ, dθ, u) # acceleration
+    dθ = dθ + ddθ*dt # integrate the velocity
+    θ = θ + dθ*dt # integrate the angle
     if wa: θ = (θ+π) % (2*π) - π # normalize the angle to [-π, π]
-    return np.array([θ, dθ]) # new state vector
-
-def variable_step(x, u , dt, wa):
-    '''Integrate the differential equation using the Euler method'''
-    θ, dθ = x # split the state vector
-    dtv = dt / (1 + dθ**2) # variable step size
-    dθ = dθ + fddθ(θ, dθ, u)[0]*dtv # integrate the acceleration
-    θ = θ + dθ*dt # integrate the velocity
-    if wa: θ = (θ+π) % (2*π) - π # normalize the angle to [-π, π]
-    return np.array([θ, dθ]) # new state vector
-
-def step(x, u, dt, wa=WRAP_AROUND): return fixed_step(x, u, dt, wa) # use the fixed step function
-# def step(x, u, dt): return variable_step(x, u, dt) # use the fixed step function
+    return np.array([θ, dθ]).T # new state vector
 
 if __name__ == '__main__':
 
     # initial conditions
     x0 = np.array([0.1, 0]) # initial conditions
-    t = np.linspace(0, 10, 10000) # time vector
+    dt = 0.0001 # time step
+    t = np.linspace(0, 10, int(10/dt)) # time vector
     u = 0*np.sin(t) # control input
     x = np.zeros((len(t), 2)) # state vector
     x[0] = x0 # initial conditions
 
     # simulate the pendulum
-    for i in range(1, len(t)): x[i] = step(x[i-1], u[i], t[1] - t[0])
+    for i in range(1, len(t)): x[i] = step(x[i-1], u[i], dt)
 
     # plot the results
     from plotting import *
 
-    ap1 = animate_pendulum(x, u, t[1]-t[0], l, 60, (6,6))
+    ap1 = animate_pendulum(x, u, dt, l1, 60, (6,6))
+
+    # simulate multiple pendulums
+    NP = 10 # number of pendulums
+    xs = np.zeros((len(t), NP, 2)) # state vector
+    us = np.zeros((len(t), NP)) # control input
+    xs[0,:] = 15*np.random.rand(NP, 2) # initial conditions
+    for i in range(1, len(t)): xs[i] = step(xs[i-1], us[i], dt)
+
+    anims = animate_pendulums(xs.transpose(1,0,2), us.T, dt, l1, 60, (6,6))
+
     plt.show()
