@@ -35,8 +35,8 @@ elif CDP: from cart_double_pendulum import *
 # function to simulate a run
 def simulate(x0, t, eu):
     '''Simulate the pendulum'''
-    n, l, dt = len(t), len(x0), t[1]-t[0] # number of time steps, control inputs, time step
-    x = np.zeros((n, l)) # [θ, dθ, ...] -> state vector
+    n, l1, dt = len(t), len(x0), t[1]-t[0] # number of time steps, control inputs, time step
+    x = np.zeros((n, l1)) # [θ, dθ, ...] -> state vector
     x[0] = x0 # initial conditions
     for i in range(1, n): x[i] = step(x[i-1], eu[i], dt)   
     return x
@@ -206,8 +206,8 @@ def test_1iter_mpc():
         xs1, xs2 = xs[:, :, 0], xs[:, :, 1] # angles and angular velocities splitted
         to_plot = np.array([xs1, xs2, us, Ts, Vs])
         a13 = general_multiplot_anim(to_plot, to, ['x1','x2','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
-        a1f1 = animate_pendulum(x_free, 0*eu, t[1]-t[0], l, fps=60, figsize=(10,10), title='Pendulum free')
-        a1p1 = animate_pendulum(x, eu, t[1]-t[0], l, fps=60, figsize=(10,10), title='Pendulum')
+        a1f1 = animate_pendulum(x_free, 0*eu, t[1]-t[0], l1, fps=60, figsize=(10,10), title='Pendulum free')
+        a1p1 = animate_pendulum(x, eu, t[1]-t[0], l1, fps=60, figsize=(10,10), title='Pendulum')
     if DP:
         # a12 = animate_costs(np.array(costs), labels=labels, figsize=(6,4), logscale=False)
         to_plot = np.array([xs[:,:,0], xs[:,:,1], xs[:,:,2], xs[:,:,3], us, Ts, Vs])
@@ -277,7 +277,7 @@ def test_mpc():
     if SP:
         to_plot = np.array([xs[:,:,0], xs[:,:,1], us, Ts, Vs])
         a3 = general_multiplot_anim(to_plot, to, ['x1','x2','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
-        ap1 = animate_pendulum(x, eu, ts[1]-ts[0], l, fps=60, figsize=(10,10), title='Pendulum')
+        ap1 = animate_pendulum(x, eu, ts[1]-ts[0], l1, fps=60, figsize=(10,10), title='Pendulum')
     if DP:
         to_plot = np.array([xs[:,:,0], xs[:,:,1], xs[:,:,2], xs[:,:,3], us, Ts, Vs])
         a3 = general_multiplot_anim(to_plot, to, ['x1','x2','x3','x4','u','T','V'], fps=5, anim_time=30, figsize=(10,8))
@@ -319,7 +319,7 @@ def free_evolutions():
 
     XS, US = xs, np.zeros((NS, len(t))) # states and control inputs
     if SP: 
-        fea = animate_pendulums(XS,US,dt,l,60,(6,6))
+        fea = animate_pendulums(XS,US,dt,l1,60,(6,6))
         fest = plot_state_trajectories(XS, center=True)
     elif DP: 
         fea = animate_double_pendulums(XS,US,dt,l1,l2,60,(6,6))
@@ -359,9 +359,9 @@ if __name__ == '__main__':
     main_start = time()
 
     # pc = plot_cost_function()
-    # sf = free_evolutions()
+    sf = free_evolutions()
     t1 = test_1iter_mpc()
-    # tm = test_mpc()
+    tm = test_mpc()
 
     print(f'\nTotal time: {time()-main_start:.2f} s')
     plt.show()

@@ -1,8 +1,7 @@
 import numpy as np; π = np.pi
 from eqns_single_pendulum import *
-WRAP = True
 
-def step(x, u, dt, wa=WRAP): 
+def step(x, u, dt, wa=True): 
     '''Integrate the differential equation using the Euler method
     x: state vector (# pendulums, 2)
     u: control input (# pendulums)

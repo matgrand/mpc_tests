@@ -36,7 +36,8 @@ UCONTR = 25 # density of the input for control
 MAXV = 8 # [rad/s] maximum angular velocity
 MAXU = 6 # maximum control input
 
-ALWAYS_RECALCULATE = False # always recalculate the Q function
+ALWAYS_RECALCULATE = True # always recalculate the Q function
+WRAP_AROUND = True # wrap around the angles
 
 if SP: N = 2 # number of states
 if DP: N = 4 # number of states
@@ -193,7 +194,7 @@ def plot_Q_stuff(Q, As, Vs, paths_inputs, bus, explored):
         paths = np.array([np.array(p) for p in paths])
         inputs = np.array([np.array(inp) for inp in inputs])
         print(f'paths: {paths.shape}, inputs: {inputs.shape}')
-        anim0 = animate_pendulums(paths, inputs, -DT, l, fps=60, figsize=(10,10))
+        anim0 = animate_pendulums(paths, inputs, -DT, l1, fps=60, figsize=(10,10))
     else: fig0, anim0 = None, None
 
     # plot the sequence of visited states
@@ -456,10 +457,10 @@ def test_explore_space():
         if len(paths_good) > 0:
             paths = paths_good
             inputs = inputs[np.where(np.abs(paths[:,-1,0]) < π/6)]
-        anim = animate_pendulums(paths, inputs, -DT, l, fps=60, figsize=(10,10))
+        anim = animate_pendulums(paths, inputs, -DT, l1, fps=60, figsize=(10,10))
         idx = np.random.randint(len(paths))
         path, input = paths[idx], inputs[idx]
-        anim2 = animate_pendulum(path, input, -DT, l, figsize=(10,10))
+        anim2 = animate_pendulum(path, input, -DT, l1, figsize=(10,10))
     return fig, fig2, anim, anim2
 
 def test_gridless():
