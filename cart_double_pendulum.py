@@ -117,7 +117,7 @@ ax.grid(True)
 ax.set_xlabel('x [m]'), ax.set_ylabel('y [m]')
 ax.set_title('Double pendulum on a cart')
 
-cart, = ax.plot([], [], 'o-', lw=2, color='black')
+cart, = ax.plot([], [], 'o-', lw=2, color='white')
 line2, = ax.plot([], [], 'o-', lw=2, color='red')
 line1, = ax.plot([], [], 'o-', lw=2, color='blue')
 

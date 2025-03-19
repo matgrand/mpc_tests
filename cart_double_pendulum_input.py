@@ -149,7 +149,7 @@ if __name__ == '__main__':
             ax[a, b].grid(True)
     ax[2, 0].plot(t, T, label='T, kinetic energy', color=C)
     ax[2, 0].plot(t, V, label='V, potential energy', color='blue')
-    ax[2, 0].plot(t, T+V, '--', label='T+V', color='black')
+    ax[2, 0].plot(t, T+V, '--', label='T+V', color='white')
     # ax[2, 0].plot(t, T-V, '--', label='T-V', color='green')
     ax[2, 0].set_title('Energies')
     ax[2, 0].legend()

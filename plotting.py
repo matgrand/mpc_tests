@@ -192,7 +192,7 @@ def animate_cart_double(x, u, dt, l1, l2, fps=60, figsize=(6,6)):
     ax.set_aspect('equal')
     ax.grid(True)
     # ax.set_xlabel('x [m]'), ax.set_ylabel('y [m]')
-    ax.plot([-lim,lim], [0,0], '-',  lw=1, color='black')[0]
+    ax.plot([-lim,lim], [0,0], '-',  lw=1, color='white')[0]
     line2 = ax.plot([], [], 'o-', lw=5, color='red')[0]
     line1 = ax.plot([], [], 'o-', lw=5, color='blue')[0]
     input = ax.plot([], [], '-', lw=3, color=C)[0]
@@ -308,7 +308,7 @@ def plot_single(x, t, u, T, V, figsize=(12,10)):
     ax[2].set_ylabel('Energy [J]')
     # ax[2].set_yscale('log')
     ax[2].legend()
-    ax[2].plot(t, T+V, '--',label='T+V, total energy', color='black')
+    ax[2].plot(t, T+V, '--',label='T+V, total energy', color='white')
     ax[2].legend(), ax[2].grid(True)
     ax[3].plot(t, u, label='u, control input', color=C)
     ax[3].set_ylabel('Control input')
@@ -329,7 +329,7 @@ def plot_double(x, t, u, T, V, figsize=(12,10)):
     ax[4].plot(t, T, label='T, kinetic energy', color='red')
     ax[4].plot(t, V, label='V, potential energy', color='blue')
     ax[4].set_ylabel('Energy [J]')
-    ax[4].plot(t, T+V, '--',label='T+V, total energy', color='black')
+    ax[4].plot(t, T+V, '--',label='T+V, total energy', color='white')
     ax[4].legend(), ax[4].grid(True), ax[5].grid(True)
     ax[5].plot(t, u, label='u, control input', color=C)
     ax[5].set_ylabel('Control input')
