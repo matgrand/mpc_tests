@@ -16,7 +16,7 @@ m1 = 1  # mass of the first pendulum
 m2 = 1  # mass of the second pendulum
 
 dt = 0.001  # time step
-SIMT = 10 # simulation time
+SIMT = 20 # simulation time
 
 class PhysicalSystem():
     def __init__(self, l1, l2, g, μ0, μ1, μ2, m0, m1, m2):
@@ -126,12 +126,13 @@ if __name__ == '__main__':
     u = np.zeros(len(t))
     # initial conditions
     x[0, 1], x[0, 2] = 1,-1
+    rand_freq = np.random.uniform(0.1, 1.5)
 
     # simulate the system
     for i in tqdm(range(1, len(t))):
         # w = np.random.normal(0, .5, 3) # generate random disturbance forces
         # ui = pid.control(-x[i-1, 0])
-        ui = 13*np.sin(2*π*1.5*t[i]) # control input
+        ui = 13*np.sin(2*π*rand_freq*t[i]) - 2*x[i-1,0] # control input
         w = [0, 0, 0]
         x[i] = sys.step(x[i-1], ui, w, dt) 
         u[i] = ui
@@ -160,5 +161,5 @@ if __name__ == '__main__':
     ax[2, 1].grid(True)
     plt.tight_layout()
 
-    a1 = animate_cart_double(x, u, dt, l1, l2)
+    a1 = animate_cart_double(x, u, dt, l1, l2, figsize=(10, 10))
     plt.show()
