@@ -124,10 +124,6 @@ def export_double_pendulum_model() -> AcadosModel:
     model.f_expl_expr = f_expl
     model.f_impl_expr = xdot - f_expl
 
-    # ── Cost expressions ──────────────────────────────────────────────────────
-    model.cost_y_expr   = vertcat(x, u)
-    model.cost_y_expr_e = x
-
     return model
 
 
@@ -141,28 +137,55 @@ def create_ocp(model: AcadosModel) -> AcadosOcp:
 
     nx = 4
     nu = 1
-    ny   = nx + nu   # 5
-    ny_e = nx        # 4
 
     # ── Time horizon ──────────────────────────────────────────────────────────
     ocp.solver_options.N_horizon = N
     ocp.solver_options.tf        = Tf
 
-    # ── Cost: NONLINEAR_LS (Gauss-Newton) ────────────────────────────────────
-    # State weights: penalise angular error and velocity
-    Q   = np.diag([2e2, 1e2, 1e0, 5e-1])   # [alpha, beta, dalpha, dbeta]
-    R   = np.diag([1e-2])                   # [tau]
-    Q_e = Q #10 * Q                             # terminal cost heavier
+    # ── Physics-based cost expressions ───────────────────────────────────────
+    alpha, beta, dalpha, dbeta = (model.x[i] for i in range(4))
+    tau = model.u[0]
+
+    cb     = cos(beta)
+    M11    = (m1 + m2)*l1**2 + m2*l2**2 + 2*m2*l1*l2*cb
+    M12    = m2*l2**2 + m2*l1*l2*cb
+    M22    = m2*l2**2
+
+    # Potential energy relative to upright (= 0 at goal)
+    V_expr = ((m1 + m2)*g*l1*(1 - cos(alpha))
+              + m2*g*l2*(1 - cos(alpha + beta)))
+    # Kinetic energy (= 0 at goal)
+    T_expr = 0.5*(M11*dalpha**2 + 2*M12*dalpha*dbeta + M22*dbeta**2)
+
+    model.cost_y_expr   = vertcat(V_expr, T_expr, alpha, beta, tau)
+    model.cost_y_expr_e = vertcat(V_expr, T_expr, alpha, beta)
+
+    # ── Cost: NONLINEAR_LS with physics-based output ──────────────────────────
+    # cost = 0.5 * (w_V*V² + w_T*T² + w_a*alpha² + w_b*beta² + w_u*tau²)
+    ny   = 5   # [V, T, alpha, beta, tau]
+    ny_e = 4   # [V, T, alpha, beta]
+
+    # w_V = 1e0   # weight on potential energy
+    # w_T = 1e-1   # weight on kinetic energy
+    # w_a = 2e1   # weight on alpha (link-1 angle error)
+    # w_b = 1e1   # weight on beta  (link-2 relative angle error)
+    # w_u = 1e-2  # weight on control effort
+
+    w_V = 1e-1   # weight on potential energy
+    w_T = 1e-1   # weight on kinetic energy
+    w_a = 2e1   # weight on alpha (link-1 angle error)
+    w_b = 1e1   # weight on beta  (link-2 relative angle error)
+    w_u = 1e-2 # weight on control effort
+
 
     ocp.cost.cost_type   = 'NONLINEAR_LS'
     ocp.cost.cost_type_e = 'NONLINEAR_LS'
 
-    ocp.cost.W   = np.block([[Q, np.zeros((nx, nu))],
-                              [np.zeros((nu, nx)), R]])
-    ocp.cost.W_e = Q_e
+    ocp.cost.W   = np.diag([w_V, w_T, w_a, w_b, w_u])
+    ocp.cost.W_e = np.diag([w_V, w_T, w_a, w_b])
 
-    ocp.cost.yref   = np.concatenate([x_ref, u_ref])
-    ocp.cost.yref_e = x_ref
+    ocp.cost.yref   = np.zeros(ny)
+    ocp.cost.yref_e = np.zeros(ny_e)
 
     # ── Constraints ───────────────────────────────────────────────────────────
     # Initial state (will be updated every MPC step)
@@ -175,6 +198,7 @@ def create_ocp(model: AcadosModel) -> AcadosOcp:
 
     # ── Solver options ────────────────────────────────────────────────────────
     ocp.solver_options.qp_solver        = 'PARTIAL_CONDENSING_HPIPM'
+    # ocp.solver_options.hessian_approx   = 'EXACT' #'GAUSS_NEWTON'
     ocp.solver_options.hessian_approx   = 'GAUSS_NEWTON'
     ocp.solver_options.integrator_type  = 'IRK'
     ocp.solver_options.nlp_solver_type  = 'SQP'
