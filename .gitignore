@@ -5,3 +5,7 @@ tmp/*
 lightning_logs/*
 logs/*
 *.npz
+
+c_generated_code/*
+*.json
+data/*
