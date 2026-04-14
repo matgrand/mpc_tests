@@ -21,12 +21,12 @@ l2   = 0.5    # [m]   length of link 2
 g    = 9.81   # [m/s²]
 
 # ── MPC horizon ───────────────────────────────────────────────────────────────
-N   = 50      # shooting nodes
-Tf  = 2     # horizon [s]
+N   = 100      # shooting nodes
+Tf  = 2.0    # horizon [s]
 dt  = Tf / N  # step size
 
 # ── Simulation ────────────────────────────────────────────────────────────────
-T_sim   = 10.0          # total sim time [s]
+T_sim   = 6.0          # total sim time [s]
 N_sim   = int(T_sim / dt)
 u_max   = 3.0           # [Nm] torque limit
 
@@ -152,7 +152,7 @@ def create_ocp(model: AcadosModel) -> AcadosOcp:
     # State weights: penalise angular error and velocity
     Q   = np.diag([2e2, 1e2, 1e0, 5e-1])   # [alpha, beta, dalpha, dbeta]
     R   = np.diag([1e-2])                   # [tau]
-    Q_e = 10 * Q                             # terminal cost heavier
+    Q_e = Q #10 * Q                             # terminal cost heavier
 
     ocp.cost.cost_type   = 'NONLINEAR_LS'
     ocp.cost.cost_type_e = 'NONLINEAR_LS'
@@ -345,7 +345,7 @@ def plot_results(t_log, x_log, u_log, status_log):
 
     plt.tight_layout()
     plt.savefig('data/mpc_result.png', dpi=150)
-    plt.show()
+    plt.show(block=False)
     print("Plot saved to data/mpc_result.png")
 
     # ── Phase portrait ────────────────────────────────────────────────────────
@@ -360,7 +360,7 @@ def plot_results(t_log, x_log, u_log, status_log):
     ax2.grid(True)
     plt.tight_layout()
     plt.savefig('data/mpc_phase.png', dpi=150)
-    plt.show()
+    # plt.show()
     print("Phase plot saved to data/mpc_phase.png")
 
 
